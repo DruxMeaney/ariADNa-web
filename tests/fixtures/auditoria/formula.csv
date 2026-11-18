@@ -1,0 +1,2 @@
+marker,child_genotype,parent_genotype,pi,note
+=HYPERLINK(""http://x"") ,A/G,A/A,1.1,=cmd|' /C calc'!A0

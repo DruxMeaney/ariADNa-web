@@ -1,0 +1,8 @@
+##fileformat=VCFv4.2
+##source=ariADNa_synthetic_example
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	hijo	progenitor_alegado
+1	100001	rs200001	A	G	.	PASS	.	GT	0/1	0/0
+1	100002	rs200002	C	T	.	PASS	.	GT	0/0	0/1
+1	100003	rs200003	G	A	.	PASS	.	GT	0/1	1/1
+1	100004	rs200004	T	C	.	PASS	.	GT	0/0	1/1
+1	100005	rs200005	A	C	.	PASS	.	GT	0/0	1/1
