@@ -1,14 +1,12 @@
-# ariADNa · versión web
+# ariADNa
 
 **Lectura de triaje preliminar de paternidad/maternidad genética, directamente en el navegador.**
 
 👉 **Usar la app:** https://druxmeaney.github.io/ariADNa-web/
 
-ariADNa compara al hijo/a contra una persona alegada como progenitor/a (padre o madre; análisis dúo), marcador por marcador, a partir de resultados que **un laboratorio ya procesó**. Detecta compatibilidad mendeliana e incongruencias y, sólo cuando el laboratorio aportó índices válidos por marcador (PI/MI/LR), calcula el CPI y la probabilidad posterior.
+ariADNa compara al hijo/a contra una persona alegada como progenitor/a (padre o madre; análisis dúo), marcador por marcador, a partir de resultados que **un laboratorio ya procesó**. Detecta compatibilidad mendeliana e incongruencias y, sólo cuando el laboratorio aportó índices válidos por marcador (PI/MI/LR), calcula el CPI y la probabilidad posterior. Algoritmo `ariADNa-triaje-v0.1.4`.
 
 > ariADNa es una herramienta de **apoyo y triaje**, no un dictamen. No sustituye a un laboratorio acreditado, al dictamen pericial, al consentimiento informado ni a la cadena de custodia. Lee el [aviso de uso](DISCLAIMER.md).
-
-Es la versión web del [complemento QGIS ariADNa](https://github.com/DruxMeaney/ariADNa-qgis-plugin) y usa **exactamente el mismo algoritmo** (`ariADNa-triaje-v0.1.4`).
 
 ## Privacidad: nada sale de tu navegador
 
@@ -21,10 +19,10 @@ Es la versión web del [complemento QGIS ariADNa](https://github.com/DruxMeaney/
 
 - Ensayos: **STR por electroforesis capilar**, **STR por MPS/NGS**, **paneles/arrays SNP** (CSV o VCF) y **microhaplotipos**.
 - Captura manual, **pegado desde hoja de cálculo**, importación **CSV/TSV/TXT/VCF** (botón o arrastrar y soltar) y ejemplos sintéticos para probar.
-- Selección de muestras en VCF, con avisos por `FILTER`, genotipos faltantes, sitios multialélicos, `DP` y `GQ` bajos.
+- Selección de muestras en VCF, con avisos por `FILTER`, genotipos faltantes, sitios multialélicos, `DP` y `GQ` bajos; las advertencias críticas bloquean CPI/probabilidad posterior.
 - Excluye del conteo marcadores no informativos (AMEL, controles, X/Y).
-- Veredicto de triaje, CPI, probabilidad posterior, gráficos y detalle por marcador con **los alelos compartidos resaltados**.
-- Reporte HTML exportable (anonimizado o con identificadores), idéntico al del complemento.
+- Veredicto de triaje, CPI, probabilidad posterior con su nivel de soporte (alto, moderado o limitado), gráficos y detalle por marcador con **los alelos compartidos resaltados**.
+- Reporte HTML exportable, anonimizado o con identificadores.
 - Modo «Datos crudos» que orienta sobre qué pedir al laboratorio cuando sólo hay FASTQ, BAM, electroferogramas, etc.
 
 **Qué no hace:** no calcula PI/LR desde frecuencias poblacionales, no modela mutaciones, alelos nulos, coancestría ni ligamiento, no analiza tríos y no lee archivos crudos.
@@ -43,31 +41,18 @@ Es la versión web del [complemento QGIS ariADNa](https://github.com/DruxMeaney/
 
 Descarga el repositorio y abre `index.html` en el navegador. No necesita instalación ni conexión.
 
-## Paridad con el complemento QGIS
-
-El motor (`js/engine.js`, `js/report.js`) es una traducción fiel de `genetic_analysis.py`, incluido el detector de delimitadores de `csv.Sniffer`, la semántica de `float()` y el redondeo de los formatos numéricos de Python. Las pruebas comparan el motor web contra resultados generados con el motor Python original: conteos, CPI, probabilidad posterior, advertencias, notas, resumen de texto y **reporte HTML byte a byte**, sobre los ejemplos, las simulaciones, los archivos de auditoría y cientos de casos límite.
-
-Diferencias intencionales respecto a la interfaz QGIS:
-
-- **Las advertencias críticas de VCF llegan al análisis.** En el complemento, la tabla no conservaba `validation_warning`, así que un VCF con `FILTER` no PASS no bloqueaba el CPI si se añadían PI a mano. Aquí sí lo bloquea, como documenta el algoritmo.
-- **Todas las columnas que acepta la validación se leen.** Alias como `parent`, `alleged_parent` o `notes` pasaban la validación pero se perdían al importar.
-- Cambiar la probabilidad previa invalida el resultado anterior (antes se podía exportar un resultado calculado con otra previa).
-- La probabilidad posterior nunca se muestra como «100 %» en pantalla; un valor que redondea a 100 se muestra como «>99.99 %».
-- Los dígitos no ASCII en un PI se marcan como inválidos (Python los aceptaba).
-
 ## Desarrollo
 
 ```
 index.html          estructura de la app y política de seguridad
 css/styles.css      sistema visual "Modern Forensic" (tema claro y oscuro)
-js/engine.js        motor de triaje (traducción de genetic_analysis.py)
+js/engine.js        motor de triaje
 js/report.js        resumen de texto y reporte HTML
 js/charts.js        gráficos SVG
 js/app.js           interfaz
 js/about.js         contenido de "Acerca de"
 js/examples.js      ejemplos sintéticos incrustados
-tests/              pruebas de paridad y pruebas portadas del complemento
-tools/              generador de la referencia Python
+tests/              pruebas y referencia congelada
 ```
 
 Sin dependencias ni paso de compilación. Para probar:
@@ -76,11 +61,9 @@ Sin dependencias ni paso de compilación. Para probar:
 node --test
 ```
 
-Para regenerar la referencia a partir del motor Python del complemento:
+Las pruebas comparan el motor con una referencia congelada (`tests/fixtures/reference.json`) que fija conteos, CPI, probabilidad posterior, advertencias, notas, resumen de texto y el **reporte HTML byte a byte** sobre ejemplos, simulaciones, archivos adversariales y cientos de casos límite. Cualquier cambio que altere un resultado hace fallar la suite.
 
-```bash
-python3 tools/gen_reference.py /ruta/a/ariADNa-qgis-plugin/ariADNa
-```
+Al publicar cambios, sube `version` en `package.json` y el sufijo `?v=` de los recursos en `index.html` (una prueba verifica que coincidan); así ningún navegador mezcla el HTML nuevo con JavaScript en caché.
 
 Para servirla en local:
 

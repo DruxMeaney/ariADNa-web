@@ -1,9 +1,10 @@
-/* Pruebas del motor web de ariADNa.
+/* Pruebas del motor de ariADNa.
  *
- *  1. Paridad: compara el motor JS contra tests/fixtures/reference.json, generado
- *     con el motor Python original (tools/gen_reference.py).
- *  2. Pruebas portadas una a una desde ariADNa/tests/test_genetic_analysis.py.
- *  3. Pruebas específicas de la versión web.
+ *  1. Referencia: compara el motor contra tests/fixtures/reference.json, una
+ *     referencia congelada y verificada (conteos, CPI, posterior, advertencias,
+ *     notas, resumen de texto y reporte HTML byte a byte).
+ *  2. Casos de comportamiento del motor.
+ *  3. Pruebas de la interfaz web (importación, reporte, gráficos).
  *
  * Ejecutar:  node --test
  */
@@ -72,7 +73,7 @@ function sameText(actual, expected, label) {
   let i = 0;
   while (i < actual.length && i < expected.length && actual[i] === expected[i]) i++;
   const ctx = (s) => JSON.stringify(s.slice(Math.max(0, i - 60), i + 60));
-  assert.fail(`${label}: difiere en el carácter ${i}\n  JS:     ${ctx(actual)}\n  Python: ${ctx(expected)}`);
+  assert.fail(`${label}: difiere en el carácter ${i}\n  JS:     ${ctx(actual)}\n  Ref:    ${ctx(expected)}`);
 }
 
 function analysisBundle(assay, rows, prior, withHtml) {
@@ -109,9 +110,9 @@ function readFixture(rel) {
 }
 
 /* =====================================================================
- * 1. Paridad con el motor Python
+ * 1. Referencia congelada
  * =================================================================== */
-test("paridad · formateo numérico idéntico a Python", () => {
+test("referencia · formateo numérico exacto", () => {
   for (const f of REF.formats) {
     const x = parseRepr(f.x);
     assert.equal(E.pyFormatG(x, 6), f.g6, `.6g de ${f.x}`);
@@ -124,7 +125,7 @@ test("paridad · formateo numérico idéntico a Python", () => {
   }
 });
 
-test("paridad · normalización de alelos, genotipos SNP, PI y marcadores", () => {
+test("referencia · normalización de alelos, genotipos SNP, PI y marcadores", () => {
   const n = REF.normalize;
   for (const c of n.alleles) assert.deepEqual(E.normalizeAlleles(c.in), c.out, `alelos ${JSON.stringify(c.in)}`);
   for (const c of n.snp) assert.deepEqual(E.normalizeSnpGenotype(c.in), c.out, `snp ${JSON.stringify(c.in)}`);
@@ -133,13 +134,13 @@ test("paridad · normalización de alelos, genotipos SNP, PI y marcadores", () =
   for (const c of n.critical) assert.equal(E.criticalDataWarningReason(c.in), c.out, `crítica ${JSON.stringify(c.in)}`);
 });
 
-test("paridad · lectura CSV (detector de delimitador y lector)", () => {
+test("referencia · lectura CSV (detector de delimitador y lector)", () => {
   for (const c of REF.csv_inline) {
     assert.deepEqual(errorOf(() => E.readCsvRows(c.text)), c.rows, `CSV ${JSON.stringify(c.text.slice(0, 50))}`);
   }
 });
 
-test("paridad · lectura VCF y selección de muestras", () => {
+test("referencia · lectura VCF y selección de muestras", () => {
   for (const c of REF.vcf_inline) {
     const label = JSON.stringify(c.text.slice(-60));
     assert.deepEqual(errorOf(() => E.readVcfSampleNames(c.text)), c.samples, `muestras ${label}`);
@@ -156,7 +157,7 @@ test("paridad · lectura VCF y selección de muestras", () => {
   }
 });
 
-test("paridad · validación de columnas y advertencias de entrada", () => {
+test("referencia · validación de columnas y advertencias de entrada", () => {
   for (const c of REF.validations) {
     assert.deepEqual(errorOf(() => E.validateCsvColumns(c.rows, c.assay)), c.out, `validación ${c.assay}`);
   }
@@ -165,14 +166,14 @@ test("paridad · validación de columnas y advertencias de entrada", () => {
   }
 });
 
-test("paridad · análisis por filas (incl. texto y reporte HTML)", () => {
+test("referencia · análisis por filas (incl. texto y reporte HTML)", () => {
   REF.row_cases.forEach((c, i) => {
     const actual = analysisBundle(c.assay, c.rows, c.prior, c.out.html_anon !== undefined);
     compareBundle(actual, c.out, `caso ${i} (${c.assay})`);
   });
 });
 
-test("paridad · archivos de ejemplo, simulación y auditoría", () => {
+test("referencia · archivos de ejemplo, simulación y auditoría", () => {
   for (const fx of REF.fixtures) {
     const text = readFixture(fx.file);
     if (fx.file.toLowerCase().endsWith(".vcf")) {
@@ -202,7 +203,7 @@ test("paridad · archivos de ejemplo, simulación y auditoría", () => {
 });
 
 /* =====================================================================
- * 2. Pruebas portadas de ariADNa/tests/test_genetic_analysis.py
+ * 2. Casos de comportamiento del motor
  * =================================================================== */
 function assertTriajeLanguage(text) {
   const lowered = text.toLowerCase();
@@ -233,7 +234,7 @@ const str = (marker, c1, c2, p1, p2, pi) => {
   return row;
 };
 
-test("py · STR compatible con PI", () => {
+test("motor · STR compatible con PI", () => {
   const r = E.analyzeMarkers("str_ce", [str("D8S1179", "12", "13", "13", "14", "2"), str("FGA", "22", "24", "21", "24", "3")]);
   assert.equal(r.exclusions, 0);
   assert.equal(r.compatible_markers, 2);
@@ -243,7 +244,7 @@ test("py · STR compatible con PI", () => {
   assertTriajeLanguage(r.conclusion);
 });
 
-test("py · incompatibilidad", () => {
+test("motor · incompatibilidad", () => {
   const r = E.analyzeMarkers("snp_panel", [{ marker: "rs1", child_genotype: "A/G", parent_genotype: "C/C" }]);
   assert.equal(r.exclusions, 1);
   assert.equal(r.cpi, null);
@@ -251,7 +252,7 @@ test("py · incompatibilidad", () => {
   assertTriajeLanguage(r.conclusion);
 });
 
-test("py · genotipo SNP compacto se separa", () => {
+test("motor · genotipo SNP compacto se separa", () => {
   assert.deepEqual(E.normalizeSnpGenotype("AG"), ["A", "G"]);
   assert.deepEqual(E.normalizeSnpGenotype("R"), ["A", "G"]);
   const r = E.analyzeMarkers("snp_panel", [{ marker: "rs1", child_genotype: "AG", parent_genotype: "GG" }]);
@@ -260,7 +261,7 @@ test("py · genotipo SNP compacto se separa", () => {
   assertTriajeLanguage(r.conclusion);
 });
 
-test("py · sin posterior cuando hay exclusión aunque haya PI", () => {
+test("motor · sin posterior cuando hay exclusión aunque haya PI", () => {
   const r = E.analyzeMarkers("str_ce", [str("D8S1179", "12", "13", "13", "14", "100"), str("FGA", "22", "24", "18", "19", "100")]);
   assert.equal(r.exclusions, 1);
   assert.equal(r.cpi, null);
@@ -269,7 +270,7 @@ test("py · sin posterior cuando hay exclusión aunque haya PI", () => {
   assertTriajeLanguage(r.conclusion);
 });
 
-test("py · PI inválido bloquea estadística", () => {
+test("motor · PI inválido bloquea estadística", () => {
   const r = E.analyzeMarkers("str_ce", [str("D8S1179", "12", "13", "13", "14", "-2")]);
   assert.equal(r.compatible_markers, 1);
   assert.equal(r.cpi, null);
@@ -277,41 +278,41 @@ test("py · PI inválido bloquea estadística", () => {
   assertTriajeLanguage(r.conclusion);
 });
 
-test("py · PI=0 en marcador compatible bloquea estadística", () => {
+test("motor · PI=0 en marcador compatible bloquea estadística", () => {
   const r = E.analyzeMarkers("str_ce", [str("D8S1179", "12", "13", "13", "14", "0")]);
   assert.equal(r.cpi, null);
   assert.ok(r.warnings.some((w) => w.includes("PI=0")));
   assertTriajeLanguage(r.conclusion);
 });
 
-test("py · PI con coma decimal", () => {
+test("motor · PI con coma decimal", () => {
   const r = E.analyzeMarkers("str_ce", [str("D8S1179", "12", "13", "13", "14", "1,5")]);
   assertAlmostEqual(r.cpi, 1.5);
 });
 
-test("py · PI con coma ambigua de miles bloquea estadística", () => {
+test("motor · PI con coma ambigua de miles bloquea estadística", () => {
   const r = E.analyzeMarkers("str_ce", [str("D8S1179", "12", "13", "13", "14", "1,234")]);
   assert.equal(r.cpi, null);
   assert.ok(r.markers[0].pi_warning.includes("coma ambigua"));
   assert.ok(r.warnings.some((w) => w.includes("PI inválidos")));
 });
 
-test("py · CSV sin columnas obligatorias se rechaza", () => {
+test("motor · CSV sin columnas obligatorias se rechaza", () => {
   assert.throws(
     () => E.validateCsvColumns([{ marker: "D8S1179", child_a1: "12", child_a2: "13", parent_a1: "13" }], "str_ce"),
     /parent_a2/
   );
 });
 
-test("py · CSV con encabezados duplicados se rechaza", () => {
+test("motor · CSV con encabezados duplicados se rechaza", () => {
   assert.throws(() => E.readCsvRows("marker,child_a1,child_a1,child_a2,parent_a1,parent_a2\nD8S1179,12,99,13,13,14\n"), /duplicados/);
 });
 
-test("py · columnas alias aceptadas", () => {
+test("motor · columnas alias aceptadas", () => {
   E.validateCsvColumns([{ marcador: "rs1", hijo_genotipo: "A/G", progenitor_genotipo: "A/A" }], "snp_panel");
 });
 
-test("py · advertencias de genotipos raros e incompletos", () => {
+test("motor · advertencias de genotipos raros e incompletos", () => {
   const joined = E.markerInputWarnings(
     [
       { marker: "rs1", child_genotype: "A/G/T", parent_genotype: "A/Z" },
@@ -323,7 +324,7 @@ test("py · advertencias de genotipos raros e incompletos", () => {
   assert.ok(joined.includes("Alelo SNP no estándar"));
 });
 
-test("py · AMEL no informativo para conteos", () => {
+test("motor · AMEL no informativo para conteos", () => {
   const r = E.analyzeMarkers("str_ce", [str("AMEL", "X", "Y", "X", "Y", "99"), str("D8S1179", "12", "13", "13", "14", "2")]);
   assert.equal(r.captured_markers, 2);
   assert.equal(r.total_markers, 1);
@@ -337,7 +338,7 @@ test("py · AMEL no informativo para conteos", () => {
   assert.equal(r.markers[0].paternity_informative, false);
 });
 
-test("py · controles y no autosómicos son no informativos", () => {
+test("motor · controles y no autosómicos son no informativos", () => {
   const r = E.analyzeMarkers("str_ce", [
     str("CONTROL_POS", "1", "", "1", ""),
     str("DYS391", "10", "", "10", ""),
@@ -353,7 +354,7 @@ test("py · controles y no autosómicos son no informativos", () => {
   assertTriajeLanguage(r.conclusion);
 });
 
-test("py · sólo marcadores no informativos", () => {
+test("motor · sólo marcadores no informativos", () => {
   const r = E.analyzeMarkers("str_ce", [str("AMEL", "X", "Y", "X", "Y")]);
   assert.equal(r.captured_markers, 1);
   assert.equal(r.total_markers, 0);
@@ -366,7 +367,7 @@ test("py · sólo marcadores no informativos", () => {
   assertTriajeLanguage(r.conclusion);
 });
 
-test("py · ejemplo STR conocido: CPI y posterior", () => {
+test("motor · ejemplo STR conocido: CPI y posterior", () => {
   const r = E.analyzeMarkers("str_ce", rowsForFixture("ejemplos/str_ce_compatible.csv"));
   const expected = 2.15 * 1.87 * 2.42 * 1.76 * 2.08 * 1.62 * 2.35 * 3.18;
   assert.equal(r.captured_markers, 8);
@@ -378,7 +379,7 @@ test("py · ejemplo STR conocido: CPI y posterior", () => {
   assertTriajeLanguage(r.conclusion);
 });
 
-test("py · ejemplo STR con dos incongruencias bloquea estadística", () => {
+test("motor · ejemplo STR con dos incongruencias bloquea estadística", () => {
   const r = E.analyzeMarkers("str_ce", rowsForFixture("ejemplos/str_ce_no_compatible.csv"));
   assert.equal(r.exclusions, 2);
   assert.equal(r.cpi, null);
@@ -386,7 +387,7 @@ test("py · ejemplo STR con dos incongruencias bloquea estadística", () => {
   assertTriajeLanguage(r.conclusion);
 });
 
-test("py · PI parcial usa sólo los PI capturados y avisa", () => {
+test("motor · PI parcial usa sólo los PI capturados y avisa", () => {
   const r = E.analyzeMarkers("str_ce", [str("D8S1179", "12", "13", "13", "14", "2"), str("FGA", "22", "24", "21", "24")]);
   assert.equal(r.exclusions, 0);
   assertAlmostEqual(r.cpi, 2);
@@ -395,7 +396,7 @@ test("py · PI parcial usa sólo los PI capturados y avisa", () => {
   assertTriajeLanguage(r.conclusion);
 });
 
-test("py · datos faltantes son incompletos, no exclusión", () => {
+test("motor · datos faltantes son incompletos, no exclusión", () => {
   const r = E.analyzeMarkers("str_ce", [str("D8S1179", "12", "", "", "")]);
   assert.equal(r.informative_markers, 0);
   assert.equal(r.exclusions, 0);
@@ -404,7 +405,7 @@ test("py · datos faltantes son incompletos, no exclusión", () => {
   assertTriajeLanguage(r.conclusion);
 });
 
-test("py · PI en marcador incompleto no se usa", () => {
+test("motor · PI en marcador incompleto no se usa", () => {
   const r = E.analyzeMarkers("str_ce", [str("D8S1179", "12", "", "", "", "9")]);
   assert.equal(r.missing_markers, 1);
   assert.equal(r.cpi, null);
@@ -412,7 +413,7 @@ test("py · PI en marcador incompleto no se usa", () => {
   assertTriajeLanguage(r.conclusion);
 });
 
-test("py · ejemplo STR por MPS con secuencias", () => {
+test("motor · ejemplo STR por MPS con secuencias", () => {
   const r = E.analyzeMarkers("str_mps", rowsForFixture("ejemplos/str_mps_compatible.csv"));
   assert.equal(r.total_markers, 4);
   assert.equal(r.compatible_markers, 4);
@@ -421,7 +422,7 @@ test("py · ejemplo STR por MPS con secuencias", () => {
   assertTriajeLanguage(r.conclusion);
 });
 
-test("py · ejemplo de microhaplotipos", () => {
+test("motor · ejemplo de microhaplotipos", () => {
   const r = E.analyzeMarkers("microhap", rowsForFixture("ejemplos/microhap_compatible.csv"));
   assert.equal(r.total_markers, 4);
   assert.equal(r.compatible_markers, 4);
@@ -429,11 +430,11 @@ test("py · ejemplo de microhaplotipos", () => {
   assertTriajeLanguage(r.conclusion);
 });
 
-test("py · probabilidad previa inválida se rechaza", () => {
+test("motor · probabilidad previa inválida se rechaza", () => {
   assert.throws(() => E.analyzeMarkers("str_ce", [str("D8S1179", "12", "13", "13", "14")], 1.0));
 });
 
-test("py · suite simulada compatible: resultados conocidos", () => {
+test("motor · suite simulada compatible: resultados conocidos", () => {
   const cases = [
     ["str_ce", "1_str_ce_globalfiler_compatible.csv", 21, 336748562.72655493],
     ["str_mps", "2_str_mps_forenseq_compatible.csv", 12, 1993066.0886690607],
@@ -459,7 +460,7 @@ test("py · suite simulada compatible: resultados conocidos", () => {
   }
 });
 
-test("py · suite simulada de exclusión: resultados conocidos", () => {
+test("motor · suite simulada de exclusión: resultados conocidos", () => {
   const cases = [
     ["str_ce", "1_str_ce_globalfiler_exclusion.csv", 21, 4, 16],
     ["str_mps", "2_str_mps_forenseq_exclusion.csv", 12, 3, 9],
@@ -482,13 +483,13 @@ test("py · suite simulada de exclusión: resultados conocidos", () => {
 
 const VCF_HEAD = "##fileformat=VCFv4.2\n#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t";
 
-test("py · VCF con dos muestras", () => {
+test("motor · VCF con dos muestras", () => {
   const rows = E.readVcfSnpRows(VCF_HEAD + "child\tparent\n1\t100\trs1\tA\tG\t.\t.\t.\tGT\t0/1\t0/0\n");
   assert.equal(rows[0].child_genotype, "A/G");
   assert.equal(rows[0].parent_genotype, "A/A");
 });
 
-test("py · VCF: nombres de muestras y asignación explícita", () => {
+test("motor · VCF: nombres de muestras y asignación explícita", () => {
   const text = VCF_HEAD + "padre_alegado\thija\n1\t100\trs1\tA\tG\t.\t.\t.\tGT\t0/0\t0/1\n";
   assert.deepEqual(E.readVcfSampleNames(text), ["padre_alegado", "hija"]);
   const rows = E.readVcfSnpRows(text, "hija", "padre_alegado");
@@ -496,7 +497,7 @@ test("py · VCF: nombres de muestras y asignación explícita", () => {
   assert.equal(rows[0].parent_genotype, "A/A");
 });
 
-test("py · VCF: advertencias por FILTER, faltantes, multialélico, DP y GQ", () => {
+test("motor · VCF: advertencias por FILTER, faltantes, multialélico, DP y GQ", () => {
   const rows = E.readVcfSnpRows(
     VCF_HEAD + "hija\tpadre_alegado\n1\t100\trs1\tA\tG,T\t.\tLowQual\t.\tGT:DP:GQ\t./.:4:10\t0/2:20:99\n",
     "hija",
@@ -509,7 +510,7 @@ test("py · VCF: advertencias por FILTER, faltantes, multialélico, DP y GQ", ()
   }
 });
 
-test("py · advertencia crítica de VCF bloquea estadística", () => {
+test("motor · advertencia crítica de VCF bloquea estadística", () => {
   const r = E.analyzeMarkers("snp_panel", [
     {
       marker: "rs1",
@@ -524,7 +525,7 @@ test("py · advertencia crítica de VCF bloquea estadística", () => {
   assert.ok(r.warnings.some((w) => w.includes("advertencias críticas")));
 });
 
-test("py · VCF sin GT queda incompleto", () => {
+test("motor · VCF sin GT queda incompleto", () => {
   const rows = E.readVcfSnpRows(
     VCF_HEAD + "hija\tpadre_alegado\n1\t100\trs1\tA\tG\t.\tPASS\t.\tDP:GQ\t20:99\t18:99\n",
     "hija",
@@ -535,23 +536,23 @@ test("py · VCF sin GT queda incompleto", () => {
   assert.ok(rows[0].validation_warning.includes("FORMAT no contiene GT"));
 });
 
-test("py · advertencias de selección VCF: muestras extra y nombres invertidos", () => {
+test("motor · advertencias de selección VCF: muestras extra y nombres invertidos", () => {
   const joined = E.vcfSampleSelectionWarnings(["padre_alegado", "hija", "madre"], "padre_alegado", "hija").join(" ");
   assert.ok(joined.includes("3 muestras"));
   assert.ok(joined.includes("parece tener nombre de progenitor"));
   assert.ok(joined.includes("parece tener nombre de hijo/a"));
 });
 
-test("py · VCF rechaza la misma muestra", () => {
+test("motor · VCF rechaza la misma muestra", () => {
   assert.throws(() => E.readVcfSnpRows(VCF_HEAD + "a\tb\n1\t100\trs1\tA\tG\t.\t.\t.\tGT\t0/1\t0/0\n", "a", "a"));
 });
 
-test("py · VCF rechaza una muestra inexistente", () => {
+test("motor · VCF rechaza una muestra inexistente", () => {
   assert.throws(() => E.readVcfSnpRows(VCF_HEAD + "a\tb\n1\t100\trs1\tA\tG\t.\t.\t.\tGT\t0/1\t0/0\n", "hija", "a"));
 });
 
 /* =====================================================================
- * 3. Específicas de la versión web
+ * 3. Interfaz web
  * =================================================================== */
 test("web · canonicalizeRows lee todos los alias que acepta la validación", () => {
   // `parent` y `alleged_parent` pasan la validación del motor; aquí también se leen.
@@ -576,7 +577,7 @@ test("web · las advertencias críticas del VCF llegan al análisis (bloquean CP
   assert.ok(r.warnings.some((w) => w.includes("advertencias críticas")));
 });
 
-test("web · dígitos no ASCII en PI se marcan inválidos (más estricto que Python)", () => {
+test("web · dígitos no ASCII en PI se marcan inválidos", () => {
   assert.deepEqual(E.parsePiWithWarning("١٢"), [null, "PI inválido: ١٢"]);
 });
 
@@ -585,4 +586,28 @@ test("web · el reporte escapa HTML de datos importados", () => {
   const html = R.buildHtmlReport(r, META_ANON);
   assert.ok(!html.includes("<img src=x"));
   assert.ok(html.includes("&lt;img src=x onerror=alert(1)&gt;"));
+});
+
+test("web · la dona usa los mismos umbrales que la conclusión", () => {
+  global.self = global;
+  global.AriadnaEngine = E;
+  require("../js/charts.js");
+  const C = global.AriadnaCharts;
+  assert.equal(C.supportLevel(0.999).label, "soporte alto");
+  assert.equal(C.supportLevel(0.9989999).label, "soporte moderado");
+  assert.equal(C.supportLevel(0.95).label, "soporte moderado");
+  assert.equal(C.supportLevel(0.9499).label, "soporte limitado");
+  // ejemplo real: 8 STR con PI modestos → posterior 99.77 % = moderado (no "alto")
+  const r = E.analyzeMarkers("str_ce", E.readCsvRows(readFixture("ejemplos/str_ce_compatible.csv")));
+  assert.ok(r.conclusion.includes("moderado"));
+  const svg = C.donut(r);
+  assert.ok(svg.includes('class="s-mid"') && svg.includes("soporte moderado"));
+});
+
+test("web · index.html versiona todos sus recursos con la versión de package.json", () => {
+  const version = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "package.json"), "utf8")).version;
+  const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+  const refs = [...html.matchAll(/(?:src|href)="((?:js|css)\/[^"]+)"/g)].map((m) => m[1]);
+  assert.ok(refs.length >= 8, "se esperaban los scripts y la hoja de estilos");
+  for (const ref of refs) assert.ok(ref.endsWith("?v=" + version), `${ref} debe terminar en ?v=${version}`);
 });

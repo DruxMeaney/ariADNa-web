@@ -1,16 +1,14 @@
 /*!
- * ariADNa — motor de triaje (versión web)
+ * ariADNa — motor de triaje (algoritmo ariADNa-triaje-v0.1.4)
  *
- * Traducción fiel a JavaScript de `ariADNa/genetic_analysis.py`
- * (algoritmo ariADNa-triaje-v0.1.4) del complemento QGIS.
  * Todo se ejecuta en el navegador: este módulo no hace peticiones de red.
  *
- * Paridad con Python: tests/engine.test.js compara este motor contra
- * resultados generados por el motor Python (tests/fixtures/reference.json).
+ * Regresión: tests/engine.test.js fija cada conteo, CPI, posterior,
+ * advertencia, nota y reporte contra la referencia congelada
+ * tests/fixtures/reference.json.
  *
- * Diferencias intencionales (más estrictas, documentadas):
- *  - Dígitos: sólo se aceptan dígitos ASCII 0-9 (Python también acepta otros
- *    dígitos Unicode). Un PI escrito con dígitos no ASCII se marca inválido.
+ * Números: sólo se aceptan dígitos ASCII 0-9; un PI escrito con otros
+ * dígitos se marca inválido.
  */
 (function (root, factory) {
   "use strict";
@@ -296,7 +294,7 @@
   }
 
   /* =====================================================================
-   * Constantes (idénticas a genetic_analysis.py)
+   * Constantes
    * =================================================================== */
   var ALGORITHM_VERSION = "ariADNa-triaje-v0.1.4";
   var VCF_MIN_DP = 10;

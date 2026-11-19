@@ -1,9 +1,8 @@
 /*!
- * ariADNa — reporte HTML y resumen de texto (versión web)
+ * ariADNa — reporte HTML y resumen de texto
  *
- * Traducción de `result_to_text` y `write_html_report` de genetic_analysis.py.
- * El HTML generado es idéntico, byte a byte, al que produce el complemento QGIS
- * (verificado en tests/engine.test.js).
+ * El HTML generado se verifica byte a byte contra la referencia congelada
+ * (tests/engine.test.js).
  */
 (function (root, factory) {
   "use strict";

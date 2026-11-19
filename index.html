@@ -9,8 +9,8 @@
   <meta name="description" content="ariADNa: lectura de triaje preliminar de paternidad/maternidad genética a partir de resultados ya procesados por un laboratorio. Todo se procesa en tu navegador.">
   <title>ariADNa · Análisis preliminar de paternidad/maternidad</title>
   <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="css/styles.css">
-  <script src="js/theme-init.js"></script>
+  <link rel="stylesheet" href="css/styles.css?v=0.2.0">
+  <script src="js/theme-init.js?v=0.2.0"></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Saltar al contenido</a>
@@ -63,15 +63,15 @@
             <div class="fields-3">
               <div class="field">
                 <label for="case-id">Caso</label>
-                <input class="input" id="case-id" autocomplete="off" spellcheck="false" placeholder="Ej.: EXP-2026-001 o ID anónimo">
+                <input class="input" id="case-id" autocomplete="off" spellcheck="false" placeholder="Ej.: CASO-001">
               </div>
               <div class="field">
                 <label for="child-id">Hijo/a</label>
-                <input class="input" id="child-id" autocomplete="off" spellcheck="false" placeholder="ID anónimo del hijo/a">
+                <input class="input" id="child-id" autocomplete="off" spellcheck="false" placeholder="Ej.: H-001">
               </div>
               <div class="field">
                 <label for="parent-id">Progenitor/a alegado/a</label>
-                <input class="input" id="parent-id" autocomplete="off" spellcheck="false" placeholder="ID anónimo del progenitor/a alegado/a">
+                <input class="input" id="parent-id" autocomplete="off" spellcheck="false" placeholder="Ej.: PA-001">
               </div>
             </div>
             <p class="help muted" id="case-help">Son etiquetas para el reporte; no cambian el cálculo. Evita nombres reales, CURP, direcciones o teléfonos.</p>
@@ -243,7 +243,7 @@
       <h2 id="help-title">Cómo leer resultados</h2>
       <p><strong>Marcadores por estado:</strong> cuántos marcadores son compatibles, incongruentes, incompletos o no informativos.</p>
       <p><strong>CPI capturado:</strong> producto de los índices PI/MI/LR válidos que entregó el laboratorio. Si hay incongruencias o PI inválidos, aparece N/D.</p>
-      <p><strong>Probabilidad posterior:</strong> convierte el CPI en porcentaje usando la probabilidad previa elegida.</p>
+      <p><strong>Probabilidad posterior:</strong> convierte el CPI en porcentaje usando la probabilidad previa elegida. El color y la etiqueta indican el soporte: alto (≥ 99.9 %), moderado (≥ 95 %) o limitado.</p>
       <p><strong>Índice por marcador:</strong> muestra qué marcadores con PI válido aportan más o menos peso.</p>
       <p><strong>Detalle:</strong> texto de triaje con advertencias. Los alelos compartidos entre hijo/a y progenitor/a aparecen resaltados. No sustituye dictamen de laboratorio ni revisión pericial.</p>
     </div>
@@ -254,11 +254,11 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-  <script src="js/engine.js"></script>
-  <script src="js/report.js"></script>
-  <script src="js/charts.js"></script>
-  <script src="js/about.js"></script>
-  <script src="js/examples.js"></script>
-  <script src="js/app.js"></script>
+  <script src="js/engine.js?v=0.2.0"></script>
+  <script src="js/report.js?v=0.2.0"></script>
+  <script src="js/charts.js?v=0.2.0"></script>
+  <script src="js/about.js?v=0.2.0"></script>
+  <script src="js/examples.js?v=0.2.0"></script>
+  <script src="js/app.js?v=0.2.0"></script>
 </body>
 </html>

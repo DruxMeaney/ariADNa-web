@@ -1,5 +1,5 @@
 /*! ariADNa — ejemplos sintéticos incrustados (no contienen datos reales).
- * Generado desde tests/fixtures/ (copias de ejemplos/ y "simulación de ensayos/" del complemento). */
+ * Generado desde tests/fixtures/ (ejemplos/ y simulacion/). */
 (function (root) {
   "use strict";
   root.AriadnaExamples = [

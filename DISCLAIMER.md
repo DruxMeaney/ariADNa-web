@@ -55,7 +55,7 @@ La forma correcta de describir esta versión es:
 
 ```text
 Herramienta abierta de apoyo y triaje preliminar para resultados genéticos procesados.
-Validación interna: casos sintéticos incluidos y paridad verificada con el motor del complemento QGIS.
+Validación interna: casos sintéticos incluidos y pruebas automáticas de regresión.
 Comparación externa contra software forense: pendiente.
 Uso pericial: no validado.
 Cálculo real de PI/LR desde frecuencias poblacionales: no implementado.

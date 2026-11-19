@@ -1,8 +1,8 @@
 /*!
  * ariADNa — gráficos de resultados (SVG generado, sin dependencias)
  *
- * Mismos cuatro gráficos que la pestaña Resultados del complemento QGIS:
- * marcadores por estado, CPI capturado, probabilidad posterior e índice por marcador.
+ * Cuatro gráficos: marcadores por estado, CPI capturado, probabilidad posterior
+ * e índice por marcador.
  * Los colores salen de clases CSS (la CSP no permite estilos en línea).
  */
 (function (root) {
@@ -14,7 +14,7 @@
     return '<div class="chart-empty"><p>' + esc(message) + "</p></div>";
   }
 
-  // Formato del valor del CPI como en la tarjeta del complemento.
+  // Formato compacto del CPI: 6 cifras significativas o notación científica.
   function formatCpi(value) {
     if (value === 0) return "0";
     var a = Math.abs(value);
@@ -73,6 +73,13 @@
     );
   }
 
+  // Mismos umbrales que la conclusión de triaje (alto ≥ 0.999, moderado ≥ 0.95).
+  function supportLevel(p) {
+    if (p >= 0.999) return { cls: "s-ok", label: "soporte alto" };
+    if (p >= 0.95) return { cls: "s-mid", label: "soporte moderado" };
+    return { cls: "s-warn", label: "soporte limitado" };
+  }
+
   function donut(result) {
     var p = result ? result.posterior_probability : null;
     var S = 200;
@@ -81,7 +88,10 @@
     var sw = 20;
     var circumference = 2 * Math.PI * r;
     var valid = p !== null && Number.isFinite(p);
-    var aria = valid ? "Probabilidad posterior " + formatPosterior(p, 2) : "Probabilidad posterior no disponible: requiere PI";
+    var level = valid ? supportLevel(p) : null;
+    var aria = valid
+      ? "Probabilidad posterior " + formatPosterior(p, 2) + ", " + level.label
+      : "Probabilidad posterior no disponible: requiere PI";
     var s = '<svg viewBox="0 0 ' + S + " " + S + '" role="img" aria-label="' + esc(aria) + '">';
     s += '<circle class="s-track" cx="' + c + '" cy="' + c + '" r="' + r + '" fill="none" stroke-width="' + sw + '"/>';
     if (!valid) {
@@ -89,14 +99,13 @@
       s += '<text class="t-muted" x="' + c + '" y="' + (c + 26) + '" text-anchor="middle">requiere PI</text>';
       return s + "</svg>";
     }
-    var cls = p >= 0.99 ? "s-ok" : p >= 0.95 ? "s-mid" : "s-warn";
     var len = Math.max(0, Math.min(1, p)) * circumference;
     s +=
-      '<circle class="' + cls + '" cx="' + c + '" cy="' + c + '" r="' + r + '" fill="none" stroke-width="' + sw +
+      '<circle class="' + level.cls + '" cx="' + c + '" cy="' + c + '" r="' + r + '" fill="none" stroke-width="' + sw +
       '" stroke-linecap="round" stroke-dasharray="' + len.toFixed(2) + " " + circumference.toFixed(2) +
       '" transform="rotate(-90 ' + c + " " + c + ')"/>';
-    s += '<text class="t-big" x="' + c + '" y="' + (c + 6) + '" text-anchor="middle" font-size="24">' + esc(formatPosterior(p, 2)) + "</text>";
-    s += '<text class="t-muted" x="' + c + '" y="' + (c + 28) + '" text-anchor="middle">posterior</text>';
+    s += '<text class="t-big" x="' + c + '" y="' + (c + 4) + '" text-anchor="middle" font-size="24">' + esc(formatPosterior(p, 2)) + "</text>";
+    s += '<text class="t-muted" x="' + c + '" y="' + (c + 26) + '" text-anchor="middle">' + level.label + "</text>";
     return s + "</svg>";
   }
 
@@ -158,5 +167,6 @@
     piChart: piChart,
     formatCpi: formatCpi,
     formatPosterior: formatPosterior,
+    supportLevel: supportLevel,
   };
 })(typeof self !== "undefined" ? self : this);
