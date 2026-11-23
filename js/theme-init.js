@@ -81,6 +81,19 @@
 
   apply();
 
+  // Precarga de la tipografía de los títulos. Se pide desde aquí, y no con una etiqueta fija
+  // en el HTML, porque al abrir la app como archivo (file://) el navegador rechaza esa
+  // petición y deja un error en la consola; ahí la fuente se carga igual desde la hoja de estilos.
+  if (root.location.protocol === "http:" || root.location.protocol === "https:") {
+    var preload = doc.createElement("link");
+    preload.rel = "preload";
+    preload.as = "font";
+    preload.type = "font/woff";
+    preload.crossOrigin = "anonymous";
+    preload.href = "assets/fonts/rubik-700.woff";
+    doc.head.appendChild(preload);
+  }
+
   // Animación de inicio: sólo al entrar por la portada, una vez por pestaña,
   // y nunca si la persona pidió menos movimiento o la desactivó.
   var seen = false;
