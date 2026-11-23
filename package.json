@@ -6,6 +6,7 @@
   "license": "MIT",
   "scripts": {
     "test": "node --test",
+    "test:ui": "node --test-reporter=spec tests/ui/smoke.mjs",
     "serve": "python3 -m http.server 8765"
   }
 }

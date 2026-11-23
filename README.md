@@ -60,16 +60,26 @@ js/app.js           interfaz
 js/about.js         contenido de "Acerca de" (teoría, metodología, marco normativo)
 js/help.js          ayuda y tutorial (Configuración › Ayuda)
 js/examples.js      ejemplos sintéticos incrustados
-tests/              pruebas y referencia congelada
+tests/              pruebas del motor, prueba de la interfaz y referencia congelada
 ```
 
-Sin dependencias ni paso de compilación. Para probar:
+Sin dependencias ni paso de compilación.
+
+### Pruebas
+
+[![Pruebas](https://github.com/DruxMeaney/ariADNa-web/actions/workflows/tests.yml/badge.svg)](https://github.com/DruxMeaney/ariADNa-web/actions/workflows/tests.yml)
 
 ```bash
-node --test
+npm test          # motor: sólo necesita Node
+npm run test:ui   # interfaz: Node 22 o posterior y Chrome, Chromium o Edge
 ```
 
-Las pruebas comparan el motor con una referencia congelada (`tests/fixtures/reference.json`) que fija conteos, CPI, probabilidad posterior, advertencias, notas, resumen de texto y el **reporte HTML byte a byte** sobre ejemplos, simulaciones, archivos adversariales y cientos de casos límite. Cualquier cambio que altere un resultado hace fallar la suite.
+- **Motor** (`tests/engine.test.js`). Compara el motor con una referencia congelada (`tests/fixtures/reference.json`) que fija conteos, CPI, probabilidad posterior, advertencias, notas, resumen de texto y el **reporte HTML byte a byte** sobre ejemplos, simulaciones, archivos adversariales y cientos de casos límite. Cualquier cambio que altere un resultado hace fallar la suite.
+- **Interfaz** (`tests/ui/smoke.mjs`). Abre la app en un navegador real, sin ventana, y la recorre como una persona: portada, ejemplo, Analizar, aviso de límites, reporte y exportación. Comprueba que lo que se ve en pantalla coincide con el motor en todos los ejemplos incluidos; que no hay errores, peticiones fuera de la app ni violaciones de la política de seguridad; que el navegador no guarda datos del caso; que el reporte sin identificadores no los contiene; y que la app funciona abierta como archivo, en tema oscuro, en pantalla de teléfono y con «reducir movimiento». No usa dependencias (habla con el navegador por el protocolo DevTools). Si no encuentra un navegador, se omite; en integración continua, falla.
+
+GitHub ejecuta ambas en cada cambio a `main` y en cada pull request (`.github/workflows/tests.yml`). Si la interfaz falla, la ejecución guarda una captura y un registro como artefacto.
+
+No cubren Safari ni Firefox, lectores de pantalla, ni la validación del triaje con casos reales de laboratorio.
 
 Al publicar cambios, sube `version` en `package.json` y el sufijo `?v=` de los recursos en `index.html` (una prueba verifica que coincidan); así ningún navegador mezcla el HTML nuevo con JavaScript en caché.
 

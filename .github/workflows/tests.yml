@@ -1,0 +1,51 @@
+# Pruebas automáticas de ariADNa.
+# Corren en cada cambio a main, en cada pull request y a mano (Actions › Pruebas › Run workflow).
+# No instalan nada: el repositorio no tiene dependencias y el ejecutor ya trae Node y Chrome.
+name: Pruebas
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pruebas-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pruebas:
+    name: Motor e interfaz
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Preparar Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          package-manager-cache: false
+
+      - name: Pruebas del motor (referencia congelada)
+        run: npm test
+
+      - name: Prueba de humo de la interfaz (Chrome sin ventana)
+        run: npm run test:ui
+        env:
+          UI_SMOKE_ARTIFACTS: ${{ runner.temp }}/fallos-interfaz
+
+      - name: Guardar captura y registro si la interfaz falló
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: fallos-interfaz
+          path: ${{ runner.temp }}/fallos-interfaz
+          if-no-files-found: ignore
+          retention-days: 7
