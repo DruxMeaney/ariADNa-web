@@ -9,8 +9,9 @@
   <meta name="description" content="ariADNa: lectura de triaje preliminar de paternidad/maternidad genética a partir de resultados ya procesados por un laboratorio. Todo se procesa en tu navegador.">
   <title>ariADNa · Análisis preliminar de paternidad/maternidad</title>
   <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="css/styles.css?v=0.2.0">
-  <script src="js/theme-init.js?v=0.2.0"></script>
+  <link rel="preload" href="assets/fonts/rubik-700.woff" as="font" type="font/woff" crossorigin>
+  <link rel="stylesheet" href="css/styles.css?v=0.3.0">
+  <script src="js/theme-init.js?v=0.3.0"></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Saltar al contenido</a>
@@ -44,87 +45,82 @@
   <main id="main">
     <!-- ============================================================ ANÁLISIS -->
     <section id="view-analysis" class="page" role="tabpanel" aria-labelledby="tab-analysis">
-      <div class="page-head">
-        <div>
-          <h1>Análisis preliminar de paternidad/maternidad genética</h1>
-          <p class="lede">Carga resultados que el laboratorio ya procesó y obtén una lectura de triaje dúo: hijo/a frente a progenitor/a alegado/a, que puede ser padre o madre.</p>
-        </div>
-        <span class="chip-note">Preliminar · no es dictamen pericial</span>
-      </div>
+      <header class="view-head">
+        <p class="eyebrow">Lectura de triaje dúo · preliminar, no es dictamen pericial</p>
+        <h1>Compara al hijo/a con el progenitor/a alegado/a</h1>
+        <p class="lede">Carga los resultados que el laboratorio ya procesó. ariADNa revisa la compatibilidad marcador por marcador y, si hay índices válidos, calcula el soporte estadístico.</p>
+      </header>
 
-      <div class="stack">
-        <div class="grid-2">
-          <section class="card" aria-labelledby="case-title">
-            <div class="card-head">
-              <span class="step" aria-hidden="true">1</span>
-              <h2 id="case-title">Datos del caso</h2>
-              <span class="hint">Usa identificadores anónimos.</span>
+      <div class="workbench">
+        <aside class="sheet" aria-label="Ficha del caso">
+          <section class="sheet-block" aria-labelledby="case-title">
+            <h2 class="sheet-title" id="case-title"><span class="sheet-num" aria-hidden="true">1</span>Caso</h2>
+            <div class="field-row">
+              <label for="case-id">Caso</label>
+              <input class="input" id="case-id" autocomplete="off" spellcheck="false" placeholder="Ej.: CASO-001">
             </div>
-            <div class="fields-3">
-              <div class="field">
-                <label for="case-id">Caso</label>
-                <input class="input" id="case-id" autocomplete="off" spellcheck="false" placeholder="Ej.: CASO-001">
-              </div>
-              <div class="field">
-                <label for="child-id">Hijo/a</label>
-                <input class="input" id="child-id" autocomplete="off" spellcheck="false" placeholder="Ej.: H-001">
-              </div>
-              <div class="field">
-                <label for="parent-id">Progenitor/a alegado/a</label>
-                <input class="input" id="parent-id" autocomplete="off" spellcheck="false" placeholder="Ej.: PA-001">
-              </div>
+            <div class="field-row">
+              <label for="child-id">Hijo/a</label>
+              <input class="input" id="child-id" autocomplete="off" spellcheck="false" placeholder="Ej.: H-001">
             </div>
-            <p class="help muted" id="case-help">Son etiquetas para el reporte; no cambian el cálculo. Evita nombres reales, CURP, direcciones o teléfonos.</p>
+            <div class="field-row">
+              <label for="parent-id">Progenitor/a</label>
+              <input class="input" id="parent-id" autocomplete="off" spellcheck="false" placeholder="Ej.: PA-001">
+            </div>
+            <p class="help" id="case-help">Identificadores anónimos: sólo etiquetan el reporte. Evita nombres reales, CURP, direcciones o teléfonos.</p>
           </section>
 
-          <section class="card" aria-labelledby="params-title">
-            <div class="card-head">
-              <span class="step" aria-hidden="true">2</span>
-              <h2 id="params-title">Parámetros</h2>
+          <section class="sheet-block" aria-labelledby="params-title">
+            <h2 class="sheet-title" id="params-title"><span class="sheet-num" aria-hidden="true">2</span>Probabilidad previa</h2>
+            <div class="prior-row">
+              <input type="range" id="prior-range" min="0.01" max="0.99" step="0.01" value="0.5" aria-label="Probabilidad previa (control deslizante)">
+              <input class="input" id="prior" inputmode="decimal" autocomplete="off" value="0.50" aria-label="Probabilidad previa" aria-describedby="prior-help prior-error">
             </div>
-            <div class="field">
-              <label for="prior">Probabilidad previa <span class="muted">(opcional)</span></label>
-              <div class="prior-row">
-                <input type="range" id="prior-range" min="0.01" max="0.99" step="0.01" value="0.5" aria-label="Probabilidad previa (control deslizante)">
-                <input class="input" id="prior" inputmode="decimal" autocomplete="off" value="0.50" aria-describedby="prior-help prior-error">
-              </div>
-              <p class="help" id="prior-help">Déjala en 0.50 si no tienes una razón formal para cambiarla. Sólo influye cuando hay índices válidos del laboratorio.</p>
-              <p class="field-error" id="prior-error" hidden></p>
-            </div>
+            <p class="help" id="prior-help">0.50 es neutral. Sólo influye cuando hay índices válidos del laboratorio.</p>
+            <p class="field-error" id="prior-error" hidden></p>
           </section>
-        </div>
 
-        <section class="card drop-host" id="data-card" aria-labelledby="data-title">
-          <div class="card-head">
-            <span class="step" aria-hidden="true">3</span>
-            <h2 id="data-title">Datos del laboratorio</h2>
-            <span class="spacer"></span>
+          <section class="sheet-block" aria-labelledby="data-title">
+            <h2 class="sheet-title" id="data-title"><span class="sheet-num" aria-hidden="true">3</span>Datos del laboratorio</h2>
             <div class="segmented" role="group" aria-label="Tipo de dato">
-              <button type="button" data-mode="processed" aria-pressed="true">Resultados procesados</button>
-              <button type="button" data-mode="raw" aria-pressed="false">Datos crudos</button>
+              <button type="button" data-mode="processed" aria-pressed="true">Procesados</button>
+              <button type="button" data-mode="raw" aria-pressed="false">Crudos</button>
             </div>
-          </div>
-
-          <div id="processed-panel">
-            <div class="toolbar">
+            <div id="assay-block">
               <div class="field">
                 <label for="assay">Tipo de ensayo</label>
                 <select class="select" id="assay"></select>
               </div>
-              <div class="toolbar-actions">
-                <button class="btn" type="button" id="import-btn">
+              <div class="sheet-actions">
+                <button class="btn btn-block" type="button" id="import-btn">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
                   Importar archivo
                 </button>
                 <details class="menu" id="examples-menu">
-                  <summary class="btn">Probar un ejemplo</summary>
+                  <summary class="btn btn-block btn-quiet">Probar con un ejemplo</summary>
                   <div class="menu-panel" id="examples-panel">
                     <div class="menu-title">Datos sintéticos, no reales</div>
                   </div>
                 </details>
               </div>
+              <p class="help">CSV, TSV o TXT con columnas; VCF para paneles SNP. También puedes arrastrar el archivo sobre la tabla o pegar celdas de una hoja de cálculo.</p>
             </div>
-            <p class="formats">Acepta <span class="mono">CSV</span>, <span class="mono">TSV</span> o <span class="mono">TXT</span> con columnas y <span class="mono">VCF</span> para paneles SNP. También puedes arrastrar el archivo sobre esta tarjeta o pegar celdas desde una hoja de cálculo.</p>
+            <div id="raw-block" hidden>
+              <div class="field">
+                <label for="raw-type">Dato crudo</label>
+                <select class="select" id="raw-type"></select>
+              </div>
+            </div>
+          </section>
+        </aside>
+
+        <section class="bench drop-host" id="data-card" aria-labelledby="markers-title">
+          <div class="bench-head">
+            <h2 id="markers-title">Marcadores</h2>
+            <span class="bench-assay" id="bench-assay"></span>
+          </div>
+
+          <div id="processed-panel">
             <div id="notice-slot" aria-live="polite"></div>
             <div class="table-wrap" id="table-wrap">
               <table class="grid-table" id="grid"></table>
@@ -139,16 +135,11 @@
           </div>
 
           <div id="raw-panel" hidden>
-            <div class="toolbar">
-              <div class="field">
-                <label for="raw-type">Dato crudo</label>
-                <select class="select" id="raw-type"></select>
-              </div>
-            </div>
             <div class="raw-detail">
+              <p class="eyebrow">Datos crudos · sólo guía</p>
               <h3 id="raw-title"></h3>
               <p id="raw-desc"></p>
-              <p class="muted">ariADNa no analiza FASTQ, BAM/CRAM, BCL, electroferogramas ni intensidades de array. Pide al laboratorio una tabla CSV/TSV o VCF con genotipos/alelos procesados y PI si aplica. Para analizar, cambia a «Resultados procesados».</p>
+              <p class="muted">ariADNa no analiza FASTQ, BAM/CRAM, BCL, electroferogramas ni intensidades de array. Pide al laboratorio una tabla CSV/TSV o VCF con genotipos/alelos procesados y PI si aplica. Para analizar, cambia a «Procesados».</p>
             </div>
           </div>
 
@@ -159,13 +150,10 @@
 
     <!-- ========================================================== RESULTADOS -->
     <section id="view-results" class="page" role="tabpanel" aria-labelledby="tab-results" hidden>
-      <div class="page-head">
-        <div>
-          <h1>Resultados</h1>
-          <p class="lede">Resumen, CPI, probabilidad posterior y peso por marcador.</p>
-        </div>
-        <div class="page-head-actions" id="results-actions" hidden>
-          <button class="btn btn-ghost" type="button" id="help-btn">Cómo leer resultados</button>
+      <div class="report-bar">
+        <p class="report-meta" id="report-meta">Informe de triaje</p>
+        <div class="report-actions" id="results-actions" hidden>
+          <button class="btn btn-ghost" type="button" id="help-btn">Cómo leer</button>
           <button class="btn" type="button" id="copy-btn">Copiar resumen</button>
           <button class="btn btn-primary" type="button" id="export-btn-2">Exportar HTML</button>
         </div>
@@ -240,12 +228,13 @@
 
   <dialog id="dlg-help" aria-labelledby="help-title">
     <div class="dialog-body">
-      <h2 id="help-title">Cómo leer resultados</h2>
-      <p><strong>Marcadores por estado:</strong> cuántos marcadores son compatibles, incongruentes, incompletos o no informativos.</p>
-      <p><strong>CPI capturado:</strong> producto de los índices PI/MI/LR válidos que entregó el laboratorio. Si hay incongruencias o PI inválidos, aparece N/D.</p>
-      <p><strong>Probabilidad posterior:</strong> convierte el CPI en porcentaje usando la probabilidad previa elegida. El color y la etiqueta indican el soporte: alto (≥ 99.9 %), moderado (≥ 95 %) o limitado.</p>
-      <p><strong>Índice por marcador:</strong> muestra qué marcadores con PI válido aportan más o menos peso.</p>
-      <p><strong>Detalle:</strong> texto de triaje con advertencias. Los alelos compartidos entre hijo/a y progenitor/a aparecen resaltados. No sustituye dictamen de laboratorio ni revisión pericial.</p>
+      <h2 id="help-title">Cómo leer los resultados</h2>
+      <p><strong>Veredicto:</strong> la lectura de triaje según las incongruencias (ninguna, una o varias) y, si hay índices válidos, el soporte estadístico.</p>
+      <p><strong>Escala de soporte:</strong> dónde cae el CPI (producto de los índices del laboratorio) respecto a las zonas limitado, moderado y alto. Los umbrales se calculan con la probabilidad previa elegida.</p>
+      <p><strong>Carril de marcadores:</strong> un segmento por marcador, coloreado por estado: compatible, incongruencia, incompleto o no informativo.</p>
+      <p><strong>Electroferograma comparado:</strong> los alelos del hijo/a hacia arriba (▲) y los del progenitor/a hacia abajo (▼), sobre el mismo eje. Los alelos compartidos se unen en verde; una incongruencia no tiene ninguna unión.</p>
+      <p><strong>Peso:</strong> el índice del laboratorio de cada marcador en escala logarítmica alrededor de PI = 1.</p>
+      <p class="muted">Es una lectura preliminar: no sustituye el dictamen de un laboratorio acreditado ni la revisión pericial.</p>
     </div>
     <div class="dialog-actions">
       <button class="btn btn-primary" type="button" data-close="ok">Entendido</button>
@@ -254,11 +243,11 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-  <script src="js/engine.js?v=0.2.0"></script>
-  <script src="js/report.js?v=0.2.0"></script>
-  <script src="js/charts.js?v=0.2.0"></script>
-  <script src="js/about.js?v=0.2.0"></script>
-  <script src="js/examples.js?v=0.2.0"></script>
-  <script src="js/app.js?v=0.2.0"></script>
+  <script src="js/engine.js?v=0.3.0"></script>
+  <script src="js/report.js?v=0.3.0"></script>
+  <script src="js/charts.js?v=0.3.0"></script>
+  <script src="js/about.js?v=0.3.0"></script>
+  <script src="js/examples.js?v=0.3.0"></script>
+  <script src="js/app.js?v=0.3.0"></script>
 </body>
 </html>

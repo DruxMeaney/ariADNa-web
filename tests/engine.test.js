@@ -588,11 +588,15 @@ test("web · el reporte escapa HTML de datos importados", () => {
   assert.ok(html.includes("&lt;img src=x onerror=alert(1)&gt;"));
 });
 
-test("web · la dona usa los mismos umbrales que la conclusión", () => {
+function loadCharts() {
   global.self = global;
   global.AriadnaEngine = E;
   require("../js/charts.js");
-  const C = global.AriadnaCharts;
+  return global.AriadnaCharts;
+}
+
+test("web · la escala de soporte usa los mismos umbrales que la conclusión", () => {
+  const C = loadCharts();
   assert.equal(C.supportLevel(0.999).label, "soporte alto");
   assert.equal(C.supportLevel(0.9989999).label, "soporte moderado");
   assert.equal(C.supportLevel(0.95).label, "soporte moderado");
@@ -600,8 +604,65 @@ test("web · la dona usa los mismos umbrales que la conclusión", () => {
   // ejemplo real: 8 STR con PI modestos → posterior 99.77 % = moderado (no "alto")
   const r = E.analyzeMarkers("str_ce", E.readCsvRows(readFixture("ejemplos/str_ce_compatible.csv")));
   assert.ok(r.conclusion.includes("moderado"));
-  const svg = C.donut(r);
-  assert.ok(svg.includes('class="s-mid"') && svg.includes("soporte moderado"));
+  assert.equal(C.supportLevel(r.posterior_probability).key, "moderate");
+  // el CPI cae entre los umbrales de 95 % y 99.9 % calculados con la previa usada
+  const prior = r.prior_probability_used;
+  assert.ok(r.cpi >= C.cpiThreshold(0.95, prior) && r.cpi < C.cpiThreshold(0.999, prior));
+  // y la posterior de esos umbrales es exactamente la del motor
+  const post = (cpi) => (cpi * prior) / (cpi * prior + (1 - prior));
+  assert.ok(Math.abs(post(C.cpiThreshold(0.95, prior)) - 0.95) < 1e-12);
+  assert.ok(Math.abs(post(C.cpiThreshold(0.999, prior)) - 0.999) < 1e-12);
+  const svg = C.supportScale(r, 800);
+  assert.ok(svg.includes('class="pin-dot"') && svg.includes("zone-moderate") && !svg.includes("is-off"));
+  assert.ok(svg.includes(C.formatPosterior(r.posterior_probability, 2)));
+});
+
+test("web · sin CPI la escala se apaga y explica el motivo", () => {
+  const C = loadCharts();
+  const r = E.analyzeMarkers("str_ce", E.readCsvRows(readFixture("ejemplos/str_ce_no_compatible.csv")));
+  assert.equal(r.cpi, null);
+  const svg = C.supportScale(r, 800);
+  assert.ok(svg.includes("is-off") && !svg.includes("pin-dot"));
+  assert.ok(svg.includes(E.escapeHtml(C.blockedReason(r))));
+});
+
+test("web · el electroferograma une sólo los alelos compartidos", () => {
+  const C = loadCharts();
+  const r = E.analyzeMarkers("str_ce", [
+    str("D8S1179", "12", "13", "13", "14", "1.8"),
+    str("TH01", "6", "7", "9.3", "9.3"),
+    str("<b>x</b>", "A", "B", "B", "C"),
+  ]);
+  const [ok, bad, odd] = r.markers;
+
+  const okSvg = C.trace(ok, 600);
+  assert.equal((okSvg.match(/class="tr-link"/g) || []).length, 1, "un solo alelo compartido");
+  assert.equal((okSvg.match(/pk-shared/g) || []).length, 2, "el compartido aparece arriba y abajo");
+  assert.ok(!okSvg.includes("is-bad"));
+  // eje numérico: 12 < 13 < 14 de izquierda a derecha
+  const xOf = (svg, label) => Number(new RegExp('x="([\\d.]+)"[^>]*>' + label.replace(".", "\\.") + "<").exec(svg)[1]);
+  assert.ok(xOf(okSvg, "12") < xOf(okSvg, "13") && xOf(okSvg, "13") < xOf(okSvg, "14"));
+
+  const badSvg = C.trace(bad, 600);
+  assert.equal(bad.compatible, false);
+  assert.ok(!badSvg.includes('class="tr-link"') && badSvg.includes("tr-base is-bad"));
+  // homocigoto 9.3/9.3: un solo pico con una sola etiqueta
+  assert.equal((badSvg.match(/>9\.3</g) || []).length, 1);
+
+  const oddSvg = C.trace(odd, 600);
+  assert.ok(!oddSvg.includes("<b>") && oddSvg.includes("Hijo/a: A, B"));
+});
+
+test("web · el peso del PI y el carril no inventan índices", () => {
+  const C = loadCharts();
+  const r = E.analyzeMarkers("str_ce", [str("A", "12", "13", "13", "14", "4"), str("B", "6", "7", "7", "8"), str("C", "6", "7", "8", "9", "3")]);
+  const scale = C.weightScale(r);
+  assert.ok(Math.abs(scale - Math.log10(4)) < 1e-12, "la escala sólo usa PI de marcadores compatibles");
+  assert.ok(C.weight(r.markers[0], scale, 150).includes("w-pos"));
+  assert.equal(C.weight(r.markers[1], scale, 150), "");
+  assert.ok(C.weight(r.markers[2], scale, 150).includes("w-off"), "PI de una incongruencia no se usa");
+  const lane = C.markerLane(r, 300);
+  assert.deepEqual([...lane.matchAll(/class="lane-(\w+)"/g)].map((m) => m[1]), ["ok", "ok", "bad"]);
 });
 
 test("web · index.html versiona todos sus recursos con la versión de package.json", () => {

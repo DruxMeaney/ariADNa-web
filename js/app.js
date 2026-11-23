@@ -91,6 +91,7 @@
     assay: "str_ce",
     tables: { str_ce: [], str_mps: [], snp_panel: [], microhap: [] },
     visible: PAGE,
+    markersVisible: 120,
     result: null,
     hadResult: false,
     exported: false,
@@ -113,6 +114,10 @@
     priorError: $("prior-error"),
     modeButtons: Array.prototype.slice.call(document.querySelectorAll(".segmented [data-mode]")),
     processedPanel: $("processed-panel"),
+    assayBlock: $("assay-block"),
+    rawBlock: $("raw-block"),
+    benchAssay: $("bench-assay"),
+    reportMeta: $("report-meta"),
     rawPanel: $("raw-panel"),
     rawType: $("raw-type"),
     rawTitle: $("raw-title"),
@@ -203,6 +208,9 @@
   }
 
   /* -------------------------------------------------------------- tabla */
+  var TRI_UP = '<svg class="tri tri-child" viewBox="0 0 10 10" aria-hidden="true"><path d="M5 1l4.5 8h-9z"/></svg>';
+  var TRI_DOWN = '<svg class="tri tri-parent" viewBox="0 0 10 10" aria-hidden="true"><path d="M5 9l4.5-8h-9z"/></svg>';
+
   function renderTableHead() {
     var cols = COLUMNS[state.assay];
     var child = cols.filter(function (c) { return c.group === "child"; });
@@ -214,8 +222,8 @@
     h += '<tr class="groups">';
     h += '<th class="idx rs" rowspan="2" scope="col"><span class="sr-only">Fila</span>#</th>';
     h += '<th class="rs" rowspan="2" scope="col">' + esc(marker.label) + "</th>";
-    h += '<th class="g-child g-start" colspan="' + child.length + '" scope="colgroup">Hijo/a</th>';
-    h += '<th class="g-start" colspan="' + parent.length + '" scope="colgroup">Progenitor/a alegado/a</th>';
+    h += '<th class="g-child g-start" colspan="' + child.length + '" scope="colgroup"><span class="grp">' + TRI_UP + "Hijo/a</span></th>";
+    h += '<th class="g-start" colspan="' + parent.length + '" scope="colgroup"><span class="grp">' + TRI_DOWN + "Progenitor/a alegado/a</span></th>";
     h += '<th class="rs g-start" rowspan="2" scope="col">' + esc(pi.label) + "</th>";
     h += '<th class="rs" rowspan="2" scope="col">' + esc(note.label) + "</th>";
     h += '<th class="act rs" rowspan="2" scope="col"><span class="sr-only">Acciones</span></th>';
@@ -352,100 +360,181 @@
   }
 
   /* -------------------------------------------------------- resultados */
-  function alleleTokens(alleles, shared) {
-    if (!alleles.length) return '<span class="allele none">—</span>';
-    return alleles
-      .map(function (a) { return '<span class="allele' + (shared.has(a) ? " shared" : "") + '">' + esc(a) + "</span>"; })
-      .join("");
+  var MARKER_PAGE = 120;
+  var GENERIC_OK_NOTE = "Comparte al menos un alelo/haplotipo con el hijo/a.";
+  var VERDICT_ICON = {
+    ok: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+    warn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M12 6v8"/><path d="M12 18.5v.01"/></svg>',
+    bad: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17"/></svg>',
+  };
+  var STATUS_MARK = { ok: "✓", bad: "✕", warn: "!", skip: "–" };
+
+  function sentence(text) {
+    var t = String(text || "").replace(/^Triaje:\s*/, "");
+    return t ? t.charAt(0).toUpperCase() + t.slice(1) : t;
   }
 
-  var STATUS_GLYPH = { ok: "✓", bad: "✕", warn: "△", skip: "–" };
+  function markerNote(m) {
+    var note = m.note || "";
+    if (note.indexOf(GENERIC_OK_NOTE) === 0) note = note.slice(GENERIC_OK_NOTE.length).trim();
+    return note;
+  }
+
+  function renderReportMeta(r) {
+    if (!r) {
+      dom.reportMeta.innerHTML = "<b>Informe de triaje</b>";
+      return;
+    }
+    var caseId = dom.caseId.value.trim();
+    var child = dom.childId.value.trim() || "hijo/a";
+    var parent = dom.parentId.value.trim() || "progenitor/a";
+    var parts = [
+      "<b>Informe de triaje</b>",
+      caseId ? "Caso " + esc(caseId) : "Caso sin identificador",
+      esc(child) + " ↔ " + esc(parent),
+      esc(r.assay_label),
+      "Previa " + E.pyFormatF(r.prior_probability_used, 2),
+      "Algoritmo " + esc(r.algorithm_version),
+    ];
+    dom.reportMeta.innerHTML = parts.map(function (p) { return "<span>" + p + "</span>"; }).join("");
+  }
+
+  function renderMarkerItem(m, i) {
+    var klass = E.statusClass(m);
+    var note = markerNote(m);
+    var pi = m.pi === null ? "—" : esc(E.pyRepr(m.pi));
+    var used = m.pi !== null && m.paternity_informative && m.compatible === true;
+    var h = '<li class="mk mk-' + klass + '">';
+    h += '<div class="mk-id"><span class="mk-name">' + esc(m.marker) + "</span>";
+    h += '<span class="status-chip ' + klass + '"><span aria-hidden="true">' + STATUS_MARK[klass] + "</span>" + esc(E.statusLabel(m)) + "</span></div>";
+    h += '<div class="mk-trace chart-host" data-trace="' + i + '"></div>';
+    h += '<div class="mk-weight"><div class="mk-pi' + (used ? "" : " is-off") + '"><span class="k">PI</span><span>' + pi + "</span></div>";
+    h += '<div class="chart-host" data-weight="' + i + '"></div></div>';
+    if (note) h += '<p class="mk-note">' + esc(note) + "</p>";
+    return h + "</li>";
+  }
 
   function renderResults() {
     var r = state.result;
     dom.resultsActions.hidden = !r;
+    renderReportMeta(r);
     if (!r) {
-      var title = state.hadResult ? "Los datos cambiaron" : "Aquí verás el resultado";
+      var title = state.hadResult ? "Los datos cambiaron" : "Aquí verás el informe";
       var text = state.hadResult
         ? "Modificaste la tabla o los parámetros. Vuelve a pulsar Analizar para actualizar la lectura de triaje."
-        : "Carga marcadores y pulsa Analizar.";
+        : "Carga marcadores en Análisis y pulsa Analizar.";
       dom.resultsRoot.innerHTML =
-        '<div class="empty-state"><h2>' + esc(title) + "</h2><p>" + esc(text) +
+        '<div class="empty-state"><h1>' + esc(title) + "</h1><p>" + esc(text) +
         '</p><button class="btn btn-primary" type="button" data-goto="analysis">Ir a Análisis</button></div>';
       return;
     }
 
     var meta = E.bannerMeta(r);
     var tone = meta[0];
-    var glyph = { ok: "✓", warn: "△", bad: "✕" }[tone];
-    var posterior = r.posterior_probability === null ? "—" : C.formatPosterior(r.posterior_probability, 4);
-    var cpi = r.cpi === null ? "—" : C.formatCpi(r.cpi);
+    var p = r.posterior_probability;
+    var level = p === null ? null : C.supportLevel(p);
+    var counts = { ok: 0, bad: 0, warn: 0, skip: 0 };
+    r.markers.forEach(function (m) { counts[E.statusClass(m)] += 1; });
+    var piUsed = r.markers.filter(function (m) { return m.pi !== null && m.paternity_informative && m.compatible === true; }).length;
 
-    var h = '<div class="stack">';
-    h +=
-      '<div class="banner ' + tone + '"><span class="glyph" aria-hidden="true">' + glyph + "</span><div>" +
-      '<div class="verdict">' + esc(meta[1]) + "</div>" +
-      '<p class="conclusion">' + esc(r.conclusion) + "</p>" +
-      '<div class="chips"><span>Resultado preliminar · no sustituye dictamen pericial</span><span>Uso sujeto a autorización y revisión profesional</span></div>' +
-      "</div></div>";
+    var h = '<div class="report">';
 
-    function kpi(label, value, cls) {
-      return '<div class="kpi"><div class="k">' + label + '</div><div class="v' + (cls ? " " + cls : "") + '">' + esc(String(value)) + "</div></div>";
+    // cabecera: veredicto + cifras clave
+    h += '<section class="report-head tone-' + tone + '" aria-labelledby="verdict-title">';
+    h += '<div class="verdict-block"><p class="eyebrow">Lectura de triaje · preliminar</p>';
+    h += '<h1 class="verdict" id="verdict-title"><span class="verdict-mark">' + VERDICT_ICON[tone] + "</span><span>" + esc(sentence(meta[1])) + "</span></h1>";
+    h += '<p class="conclusion">' + esc(sentence(r.conclusion)) + "</p>";
+    h += '<p class="disclaimer-line">No sustituye el dictamen de un laboratorio acreditado ni la revisión pericial.</p></div>';
+
+    h += '<dl class="stats">';
+    h += '<div class="stat stat-main"><dt>Probabilidad posterior</dt><dd>';
+    if (p === null) {
+      h += '<span class="num is-empty">—</span><span class="sub">' + esc(C.blockedReason(r)) + "</span>";
+    } else {
+      h += '<span class="num">' + esc(C.formatPosterior(p, 2)) + "</span>";
+      h += '<span class="level level-' + level.key + '">' + esc(level.label) + "</span>";
     }
-    h += '<div class="kpis">';
-    h += kpi("Útiles", r.total_markers);
-    h += kpi("Compatibles", r.compatible_markers, r.compatible_markers ? "ok" : "");
-    h += kpi("Incongruencias", r.exclusions, r.exclusions ? "bad" : "");
-    h += kpi("No inform.", r.non_informative_markers, r.non_informative_markers ? "skip" : "");
-    h += kpi("CPI", cpi);
-    h += kpi("Posterior", posterior);
-    h += "</div>";
+    h += "</dd></div>";
+    h += '<div class="stat"><dt>CPI</dt><dd>' + (r.cpi === null ? '<span class="num is-empty">—</span>' : '<span class="num">' + esc(C.formatCpi(r.cpi)) + "</span>");
+    h += '<span class="sub">' + (r.cpi === null ? "sin índices válidos" : "producto de " + piUsed + " PI") + "</span></dd></div>";
+    h += '<div class="stat"><dt>Compatibles</dt><dd><span class="num">' + r.compatible_markers + '<span class="of"> / ' + r.total_markers + "</span></span>";
+    var sub = [];
+    sub.push(r.exclusions === 1 ? "1 incongruencia" : r.exclusions + " incongruencias");
+    if (r.missing_markers) sub.push(r.missing_markers + " incompleto(s)");
+    h += '<span class="sub">' + esc(sub.join(" · ")) + "</span></dd></div>";
+    h += "</dl></section>";
 
-    h +=
-      '<p class="meta-line">Ensayo: ' + esc(r.assay_label) + " · Probabilidad previa usada: " +
-      E.pyFormatF(r.prior_probability_used, 2) + " · Algoritmo: " + esc(r.algorithm_version) +
-      " · Marcadores capturados: " + r.captured_markers + " · Datos incompletos: " + r.missing_markers + "</p>";
+    // escala de soporte
+    h += '<section class="panel" aria-labelledby="scale-title"><div class="panel-head"><h2 id="scale-title">Escala de soporte</h2>';
+    h += '<span class="hint">Dónde cae el CPI frente a los umbrales de 95 % y 99.9 % con previa ' + E.pyFormatF(r.prior_probability_used, 2) + "</span></div>";
+    h += '<div class="chart-host" data-chart="scale"></div></section>';
 
-    h += '<div class="charts">';
-    h += '<section class="chart-card"><h3>Marcadores por estado</h3>' + C.statusBars(r) + "</section>";
-    h += '<section class="chart-card"><h3>CPI capturado</h3>' + C.cpiCard(r) + "</section>";
-    h += '<section class="chart-card"><h3>Probabilidad posterior</h3>' + C.donut(r) + "</section>";
-    h += "</div>";
-    h += '<section class="chart-card"><h3>Índice de laboratorio por marcador</h3><div class="table-scroll-x">' + C.piChart(r) + "</div></section>";
+    // carril de marcadores
+    h += '<section class="panel" aria-labelledby="lane-title"><div class="panel-head"><h2 id="lane-title">Carril de marcadores</h2>';
+    h += '<span class="hint">' + r.captured_markers + " capturados · " + r.total_markers + " útiles</span></div>";
+    h += '<div class="chart-host" data-chart="lane"></div>';
+    h += '<ul class="legend lane-legend">';
+    h += '<li><span class="swatch swatch-ok"></span>Compatible <b>' + counts.ok + "</b></li>";
+    h += '<li><span class="swatch swatch-bad"></span>Incongruencia <b>' + counts.bad + "</b></li>";
+    h += '<li><span class="swatch swatch-warn"></span>Incompleto <b>' + counts.warn + "</b></li>";
+    h += '<li><span class="swatch swatch-skip"></span>No informativo <b>' + counts.skip + "</b></li>";
+    h += "</ul></section>";
 
     if (r.warnings.length) {
-      h += '<section class="card"><div class="card-head"><h2>Advertencias</h2><span class="hint">' + r.warnings.length + "</span></div>";
+      h += '<section class="panel panel-warn" aria-labelledby="warn-title"><div class="panel-head"><h2 id="warn-title">Advertencias</h2>';
+      h += '<span class="hint">' + r.warnings.length + "</span></div>";
       h += '<ul class="warn-list">' + r.warnings.map(function (w) { return "<li>" + esc(w) + "</li>"; }).join("") + "</ul></section>";
     }
 
-    h += '<section class="card"><div class="card-head"><h2>Detalle por marcador</h2><span class="spacer"></span>';
-    h += '<div class="legend"><span><span class="allele shared">13</span> alelo compartido</span><span>' + r.markers.length + " marcador(es)</span></div></div>";
-    h += '<div class="table-wrap"><table class="marker-table"><thead><tr>';
-    h += "<th>Marcador</th><th>Estado</th><th>Hijo/a</th><th>Progenitor/a alegado/a</th><th>Índice</th><th>Nota</th>";
-    h += "</tr></thead><tbody>";
-    r.markers.forEach(function (m) {
-      var klass = E.statusClass(m);
-      var shared = new Set();
-      if (m.paternity_informative) {
-        var parentSet = new Set(m.alleged_parent);
-        m.child.forEach(function (a) { if (parentSet.has(a)) shared.add(a); });
-      }
-      h += "<tr>";
-      h += '<td class="m-name">' + esc(m.marker) + "</td>";
-      h += '<td><span class="status-chip ' + klass + '"><span aria-hidden="true">' + STATUS_GLYPH[klass] + "</span>" + esc(E.statusLabel(m)) + "</span></td>";
-      h += '<td><div class="alleles">' + alleleTokens(m.child, shared) + "</div></td>";
-      h += '<td><div class="alleles">' + alleleTokens(m.alleged_parent, shared) + "</div></td>";
-      h += '<td class="mono">' + (m.pi === null ? "—" : esc(E.pyRepr(m.pi))) + "</td>";
-      h += '<td class="m-note">' + esc(m.note) + "</td>";
-      h += "</tr>";
-    });
-    h += "</tbody></table></div></section>";
+    // electroferograma comparado
+    h += '<section class="panel" aria-labelledby="markers-res-title"><div class="panel-head"><h2 id="markers-res-title">Electroferograma comparado</h2>';
+    h += '<span class="spacer"></span><ul class="legend">';
+    h += '<li><span class="swatch swatch-child"></span>hijo/a</li>';
+    h += '<li><span class="swatch swatch-parent"></span>progenitor/a alegado/a</li>';
+    h += '<li><span class="swatch swatch-shared"></span>alelo compartido</li>';
+    h += "</ul></div>";
+    h += '<ol class="markers" id="markers-list">';
+    var shown = Math.min(r.markers.length, state.markersVisible);
+    for (var i = 0; i < shown; i++) h += renderMarkerItem(r.markers[i], i);
+    h += "</ol>";
+    if (shown < r.markers.length) {
+      h += '<button class="btn btn-ghost markers-more" type="button" id="markers-more">Mostrar ' +
+        Math.min(MARKER_PAGE, r.markers.length - shown) + " marcadores más (quedan " + (r.markers.length - shown) + ")</button>";
+    }
+    h += "</section>";
 
     h +=
-      '<p class="footnote">Este resultado es preliminar y debe validarse con laboratorio acreditado, cadena de custodia y revisión pericial. ' +
+      '<p class="footnote">Resultado preliminar: debe validarse con laboratorio acreditado, cadena de custodia y revisión pericial. ' +
       "Privacidad: usa sólo datos autorizados e identificadores anónimos; los datos genéticos son sensibles.</p>";
     h += "</div>";
     dom.resultsRoot.innerHTML = h;
+    if (state.view === "results") paintResults(true);
+  }
+
+  // Los SVG se dibujan al ancho real de cada contenedor (1 unidad = 1 px).
+  function paintResults(animate) {
+    var r = state.result;
+    if (!r || state.view !== "results") return;
+    var root = dom.resultsRoot;
+    var scale = root.querySelector('[data-chart="scale"]');
+    if (!scale || !scale.clientWidth) return;
+    scale.innerHTML = C.supportScale(r, scale.clientWidth);
+    var lane = root.querySelector('[data-chart="lane"]');
+    if (lane) lane.innerHTML = C.markerLane(r, lane.clientWidth);
+    var wScale = C.weightScale(r);
+    Array.prototype.forEach.call(root.querySelectorAll("[data-trace]"), function (host) {
+      var m = r.markers[Number(host.dataset.trace)];
+      if (m) host.innerHTML = C.trace(m, host.clientWidth);
+    });
+    Array.prototype.forEach.call(root.querySelectorAll("[data-weight]"), function (host) {
+      var m = r.markers[Number(host.dataset.weight)];
+      if (m) host.innerHTML = C.weight(m, wScale, host.clientWidth);
+    });
+    if (animate) {
+      root.classList.remove("is-animating");
+      void root.offsetWidth;
+      root.classList.add("is-animating");
+    }
   }
 
   /* ------------------------------------------------------------- vistas */
@@ -463,6 +552,7 @@
     dom.actionbar.hidden = view !== "analysis";
     document.body.classList.toggle("with-actionbar", view === "analysis");
     updateButtons();
+    if (view === "results") paintResults(true);
     if (!opts.keepHash) {
       try {
         history.replaceState(null, "", "#" + VIEW_HASH[view]);
@@ -718,6 +808,7 @@
     }
     try {
       state.result = E.analyzeMarkers(state.assay, rows, prior);
+      state.markersVisible = MARKER_PAGE;
       state.hadResult = true;
       state.exported = false;
     } catch (err) {
@@ -876,6 +967,7 @@
   function setAssay(assay) {
     state.assay = assay;
     dom.assay.value = assay;
+    dom.benchAssay.textContent = E.ASSAY_TYPES[assay].label;
     if (!state.tables[assay].length) state.tables[assay] = blankRowsFor(assay, DEFAULT_ROWS);
     state.visible = PAGE;
     state.notice = null;
@@ -889,6 +981,9 @@
     dom.modeButtons.forEach(function (b) { b.setAttribute("aria-pressed", b.dataset.mode === mode ? "true" : "false"); });
     dom.processedPanel.hidden = mode !== "processed";
     dom.rawPanel.hidden = mode !== "raw";
+    dom.assayBlock.hidden = mode !== "processed";
+    dom.rawBlock.hidden = mode !== "raw";
+    dom.benchAssay.textContent = mode === "raw" ? "Guía de datos crudos" : E.ASSAY_TYPES[state.assay].label;
     updateStatus();
     updateButtons();
   }
@@ -1042,6 +1137,7 @@
     dom.analyzeKbd.textContent = isMac ? "⌘ ↵" : "Ctrl ↵";
 
     state.tables.str_ce = blankRowsFor("str_ce", DEFAULT_ROWS);
+    dom.benchAssay.textContent = E.ASSAY_TYPES[state.assay].label;
     renderTable();
     renderResults();
     updateStatus();
@@ -1073,6 +1169,9 @@
     });
 
     // caso y parámetros
+    [dom.caseId, dom.childId, dom.parentId].forEach(function (input) {
+      input.addEventListener("input", function () { renderReportMeta(state.result); });
+    });
     dom.prior.addEventListener("input", function () {
       var v = readPrior();
       if (v !== null) dom.priorRange.value = String(v);
@@ -1152,6 +1251,28 @@
     dom.exportBtn2.addEventListener("click", exportFlow);
     dom.copyBtn.addEventListener("click", copySummary);
     dom.helpBtn.addEventListener("click", function () { openDialog(dom.dlgHelp); });
+    dom.resultsRoot.addEventListener("click", function (event) {
+      if (!event.target.closest("#markers-more") || !state.result) return;
+      var list = document.getElementById("markers-list");
+      var from = state.markersVisible;
+      state.markersVisible = Math.min(state.result.markers.length, from + MARKER_PAGE);
+      var html = "";
+      for (var i = from; i < state.markersVisible; i++) html += renderMarkerItem(state.result.markers[i], i);
+      list.insertAdjacentHTML("beforeend", html);
+      var more = document.getElementById("markers-more");
+      var left = state.result.markers.length - state.markersVisible;
+      if (left <= 0) more.remove();
+      else more.textContent = "Mostrar " + Math.min(MARKER_PAGE, left) + " marcadores más (quedan " + left + ")";
+      paintResults(false);
+    });
+    var resizeTimer = null;
+    var lastWidth = window.innerWidth;
+    window.addEventListener("resize", function () {
+      if (window.innerWidth === lastWidth) return;
+      lastWidth = window.innerWidth;
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(function () { paintResults(false); }, 120);
+    });
     dom.clearCase.addEventListener("click", clearCase);
     dom.themeToggle.addEventListener("click", toggleTheme);
     if (window.matchMedia) {
