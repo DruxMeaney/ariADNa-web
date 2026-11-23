@@ -81,7 +81,7 @@
     section(
       "help-exportar",
       "Exportar y privacidad",
-      "<p>«Exportar reporte» descarga un archivo HTML con el veredicto, la tabla por marcador y las advertencias. Por defecto se exporta sin identificadores. El reporte conserva los genotipos: guárdalo sólo en una ubicación autorizada.</p>" +
+      "<p>«Exportar reporte» descarga un archivo HTML con el veredicto, las mismas figuras que ves en pantalla (soporte estadístico y esquema de alelos), la tabla por marcador y las advertencias. Se abre en cualquier navegador, sin conexión, y puedes imprimirlo o guardarlo como PDF. Por defecto se exporta sin identificadores. El reporte conserva los genotipos: guárdalo sólo en una ubicación autorizada.</p>" +
         "<p>Todo ocurre en tu navegador. No hay servidor ni envío de datos, y los datos del caso no se guardan: desaparecen al cerrar la pestaña o al pulsar «Limpiar caso». Lo único que se recuerda en este navegador son tus preferencias de interfaz (tema, color, animaciones y avisos).</p>"
     ) +
 

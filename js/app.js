@@ -610,7 +610,6 @@
     var conclusion = sentence(reading.conclusion);
     var counts = { ok: 0, bad: 0, warn: 0, skip: 0 };
     r.markers.forEach(function (m) { counts[E.statusClass(m)] += 1; });
-    var piUsed = sup ? sup.used.length : 0;
     var anyNumeric = r.markers.some(function (m) { return m.child.concat(m.alleged_parent).some(function (a) { return C.repeatPos(a, m.marker) !== null; }); });
 
     var h = '<div class="report">';
@@ -622,17 +621,18 @@
     h += '<p class="conclusion">' + esc(conclusion) + "</p>";
     h += '<p class="disclaimer-line">No sustituye el dictamen de un laboratorio acreditado ni la revisión pericial.</p></div>';
     h += '<dl class="stats">';
+    var top = C.headline(r); // mismas cifras que el reporte exportado
     h += '<div class="stat stat-main"><dt>Probabilidad posterior</dt><dd>';
     if (!sup) {
-      h += '<span class="num is-empty" aria-hidden="true">—</span><span class="sub">' + esc(C.blockedReason(r)) + "</span>";
+      h += '<span class="num is-empty" aria-hidden="true">—</span><span class="sub">' + esc(top.blocked) + "</span>";
     } else {
-      h += '<span class="num">' + esc(C.formatPosterior(sup.posterior, 2)) + "</span>";
-      h += '<span class="level level-' + sup.level.key + '">' + esc(sup.level.label) + "</span>";
+      h += '<span class="num">' + esc(top.posterior) + "</span>";
+      h += '<span class="level level-' + top.level.key + '">' + esc(top.level.label) + "</span>";
     }
     h += "</dd></div>";
     h += '<div class="stat"><dt>CPI</dt><dd>';
-    if (!sup) h += '<span class="num is-empty" aria-hidden="true">—</span><span class="sub">sin índices válidos</span>';
-    else h += '<span class="num">' + esc(sup.degenerate || r.cpi >= 1e6 || r.cpi < 0.001 ? C.cpiShortFromLog(sup.log10Cpi) : C.formatCpi(r.cpi)) + '</span><span class="sub">producto de ' + piUsed + " PI</span>";
+    if (!sup) h += '<span class="num is-empty" aria-hidden="true">—</span><span class="sub">' + esc(top.cpiNote) + "</span>";
+    else h += '<span class="num">' + esc(top.cpi) + '</span><span class="sub">' + esc(top.cpiNote) + "</span>";
     h += "</dd></div>";
     h += '<div class="stat"><dt>Compatibles</dt><dd><span class="num">' + r.compatible_markers + '<span class="of"><span aria-hidden="true"> / </span><span class="sr-only"> de </span>' + r.total_markers + "</span></span>";
     var sub = [r.exclusions === 1 ? "1 incongruencia" : r.exclusions + " incongruencias"];
@@ -1291,7 +1291,7 @@
         if (ids.case_id) filename = "reporte_ariadna_" + safeName(ids.case_id) + ".html";
       }
       try {
-        download(filename, R.buildHtmlReport(state.result, metadata, reportExtras()), "text/html;charset=utf-8");
+        download(filename, R.buildHtmlReport(state.result, metadata, reportExtras(true)), "text/html;charset=utf-8");
       } catch (err) {
         toast("No pudimos guardar el reporte.");
         return;
@@ -1303,15 +1303,18 @@
   }
 
   // Añadidos de la versión web al reporte (el motor base queda intacto si no se pasan).
-  function reportExtras() {
+  // `figures` sólo aplica al HTML exportado: lleva las mismas figuras que la pantalla.
+  function reportExtras(withFigures) {
     var reading = readingOf(state.result);
-    return {
+    var extras = {
       cap_posterior: true,
       verdict: [reading.tone, reading.verdict],
       conclusion: reading.conclusion,
       insights: reading.insights,
       limits: LIMITS,
     };
+    if (withFigures) extras.figures = C.reportFigures(state.result);
+    return extras;
   }
 
   function copySummary() {

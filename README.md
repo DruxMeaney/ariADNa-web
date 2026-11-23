@@ -27,7 +27,7 @@ ariADNa compara al hijo/a contra una persona alegada como progenitor/a (padre o 
 - **Observaciones de control**: perfiles idénticos, marcadores repetidos, índices atípicos o que contradicen la compatibilidad, pocos marcadores, anatomía de las incongruencias en STR.
 - Aviso de **alcances y límites** antes de analizar y al final de cada reporte.
 - Página de inicio, guía de primer uso, ayuda integrada y **configuración** (tema claro/oscuro/automático, color de la interfaz, animaciones).
-- Reporte HTML exportable, anonimizado o con identificadores.
+- Reporte HTML exportable, anonimizado o con identificadores: lleva la misma lectura y las mismas figuras que la pantalla, se abre sin conexión en cualquier navegador (también en el teléfono) y está listo para imprimir o guardar como PDF.
 - Modo «Datos crudos» que orienta sobre qué pedir al laboratorio cuando sólo hay FASTQ, BAM, electroferogramas, etc.
 
 **Qué no hace:** no calcula PI/LR desde frecuencias poblacionales, no modela mutaciones, alelos nulos, coancestría ni ligamiento, no analiza tríos y no lee archivos crudos.
@@ -70,12 +70,13 @@ Sin dependencias ni paso de compilación.
 [![Pruebas](https://github.com/DruxMeaney/ariADNa-web/actions/workflows/tests.yml/badge.svg)](https://github.com/DruxMeaney/ariADNa-web/actions/workflows/tests.yml)
 
 ```bash
-npm test          # motor: sólo necesita Node
+npm test          # motor y reporte exportado: sólo necesita Node
 npm run test:ui   # interfaz: Node 22 o posterior y Chrome, Chromium o Edge
 ```
 
 - **Motor** (`tests/engine.test.js`). Compara el motor con una referencia congelada (`tests/fixtures/reference.json`) que fija conteos, CPI, probabilidad posterior, advertencias, notas, resumen de texto y el **reporte HTML byte a byte** sobre ejemplos, simulaciones, archivos adversariales y cientos de casos límite. Cualquier cambio que altere un resultado hace fallar la suite.
-- **Interfaz** (`tests/ui/smoke.mjs`). Abre la app en un navegador real, sin ventana, y la recorre como una persona: portada, ejemplo, Analizar, aviso de límites, reporte y exportación. Comprueba que lo que se ve en pantalla coincide con el motor en todos los ejemplos incluidos; que no hay errores, peticiones fuera de la app ni violaciones de la política de seguridad; que el navegador no guarda datos del caso; que el reporte sin identificadores no los contiene; y que la app funciona abierta como archivo, en tema oscuro, en pantalla de teléfono y con «reducir movimiento». No usa dependencias (habla con el navegador por el protocolo DevTools). Si no encuentra un navegador, se omite; en integración continua, falla.
+- **Reporte exportado** (`tests/report-export.test.js`). El reporte que descarga la app lleva las figuras de la pantalla (`extras.figures`); la plantilla base, sin figuras, es la que fija la referencia. Comprueba que el archivo trae la misma lectura y las mismas cifras, un esquema por marcador, sólo los identificadores que se le pasan, ningún script ni recurso externo, y los mismos colores que el tema claro de la app.
+- **Interfaz** (`tests/ui/smoke.mjs`). Abre la app en un navegador real, sin ventana, y la recorre como una persona: portada, ejemplo, Analizar, aviso de límites, reporte y exportación. Comprueba que lo que se ve en pantalla coincide con el motor en todos los ejemplos incluidos; que no hay errores, peticiones fuera de la app ni violaciones de la política de seguridad; que el navegador no guarda datos del caso; que el reporte sin identificadores no los contiene; que el archivo exportado se lee igual que la pantalla, también en teléfono y al imprimir; y que la app funciona abierta como archivo, en tema oscuro, en pantalla de teléfono y con «reducir movimiento». No usa dependencias (habla con el navegador por el protocolo DevTools). Si no encuentra un navegador, se omite; en integración continua, falla.
 
 GitHub ejecuta ambas en cada cambio a `main` y en cada pull request (`.github/workflows/tests.yml`). Si la interfaz falla, la ejecución guarda una captura y un registro como artefacto.
 

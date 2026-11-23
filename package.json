@@ -1,6 +1,6 @@
 {
   "name": "ariadna-web",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": true,
   "description": "ariADNa: triaje preliminar de paternidad/maternidad genética en el navegador (sin servidor).",
   "license": "MIT",

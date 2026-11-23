@@ -323,6 +323,7 @@ function readReport() {
     verdict: __t.text("#verdict-title"),
     conclusion: __t.text("#results-root .conclusion"),
     posterior: num(stats[0]),
+    cpi: num(stats[1]),
     compatible: pair[0],
     total: pair[1],
     markers: Number(__t.text('#results-root [data-filter="all"] b')),
@@ -332,6 +333,45 @@ function readReport() {
     glyphs: __t.qa("[data-glyph] svg", root).length,
     focus: document.activeElement ? document.activeElement.id : "",
     title: document.title,
+  };
+}
+
+// Lo que muestra un reporte exportado al abrirlo en el navegador.
+function readExported() {
+  const stats = __t.qa(".stats .stat");
+  const num = (stat) => (stat && stat.querySelector(".num") ? __t.clean(stat.querySelector(".num").textContent) : "");
+  const pair = (num(stats[2]).match(/\d+/g) || []).map(Number);
+  const shown = (selector) => {
+    const el = __t.q(selector);
+    return __t.visible(el) ? Math.round(el.getBoundingClientRect().width) : 0;
+  };
+  const fill = (selector) => {
+    const el = __t.q(selector);
+    return el ? getComputedStyle(el).fill : "";
+  };
+  const table = __t.q(".mk-table");
+  const name = __t.q("tr.mk .mk-name");
+  const glyphBoxes = __t.qa("tr.mk svg.ag").map((svg) => svg.getBoundingClientRect());
+  return {
+    tone: ((__t.q(".report-head").className.match(/tone-(\w+)/)) || [])[1] || "",
+    verdict: __t.text("h1.verdict"),
+    conclusion: __t.text(".conclusion"),
+    posterior: num(stats[0]),
+    cpi: num(stats[1]),
+    compatible: pair[0],
+    total: pair[1],
+    rows: __t.qa("tr.mk").length,
+    glyphs: __t.qa("tr.mk svg.ag").filter((svg) => svg.getBoundingClientRect().width > 60).length,
+    supportWide: shown(".fig-wide svg.sup"),
+    supportNarrow: shown(".fig-narrow svg.sup"),
+    zoneFill: fill("svg.sup .zone-high"),
+    sharedFill: fill("svg.ag .pk-shared"),
+    tableRight: table ? Math.round(table.getBoundingClientRect().right) : 0,
+    // renglones que ocupa el nombre del primer marcador (1 = no quedó aplastado)
+    nameLines: name ? Math.round(name.getBoundingClientRect().height / parseFloat(getComputedStyle(name).lineHeight)) : 0,
+    glyphRight: Math.round(Math.max(0, ...glyphBoxes.map((box) => box.right))),
+    glyphMinWidth: Math.round(Math.min(...glyphBoxes.map((box) => box.width))),
+    screenWidth: window.innerWidth,
   };
 }
 
@@ -369,7 +409,7 @@ function trackDownloads() {
   return onEvent;
 }
 
-async function openPage({ width = 1280, height = 800, mobile = false, dark = false, reducedMotion = false, allowed } = {}) {
+async function openPage({ width = 1280, height = 800, mobile = false, dark = false, reducedMotion = false, media = "", allowed } = {}) {
   const { cdp } = env;
   const { browserContextId } = await cdp.send("Target.createBrowserContext");
   // Las descargas van a una carpeta temporal de la prueba, nunca a la carpeta de Descargas de la persona.
@@ -415,6 +455,7 @@ async function openPage({ width = 1280, height = 800, mobile = false, dark = fal
   await send("Page.addScriptToEvaluateOnNewDocument", { source: `(${pageInit})();` });
   await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile });
   await send("Emulation.setEmulatedMedia", {
+    media, // "print" para ver el documento como saldría en papel
     features: [
       { name: "prefers-color-scheme", value: dark ? "dark" : "light" },
       { name: "prefers-reduced-motion", value: reducedMotion ? "reduce" : "no-preference" },
@@ -589,6 +630,33 @@ async function loadStartExample(page) {
   await page.waitFor(() => __t.text("#notice-slot").includes("Ejemplo cargado"), { label: "el aviso «Ejemplo cargado»" });
 }
 
+// Carga un ejemplo desde el menú «Ejemplos», aceptando reemplazar los datos que hubiera.
+// Si es un VCF, acepta las muestras propuestas y las devuelve; si no, devuelve null.
+async function loadMenuExample(page, example) {
+  await page.click("#examples-menu > summary", { label: "el menú «Ejemplos»" });
+  await page.click(`[data-example="${example.id}"]`, { label: `el ejemplo ${example.id}` });
+  let vcf = null;
+  await until(async () => {
+    const state = await page.run(
+      (filename) => (__t.q("#dlg-confirm").open ? "confirm" : __t.q("#dlg-vcf").open ? "vcf" : __t.text("#notice-slot").includes(filename) ? "done" : ""),
+      example.filename
+    );
+    if (state === "confirm") {
+      await page.click('#dlg-confirm [data-close="ok"]', { label: "«Reemplazar»" });
+      await page.waitFor(() => !__t.q("#dlg-confirm").open, { label: "que cierre la confirmación" });
+    } else if (state === "vcf") {
+      vcf = await page.run(() => ({
+        child: __t.q("#vcf-child").selectedOptions[0].textContent,
+        parent: __t.q("#vcf-parent").selectedOptions[0].textContent,
+      }));
+      await page.click("#vcf-ok", { label: "«Usar muestras»" });
+      await page.waitFor(() => !__t.q("#dlg-vcf").open, { label: "que cierre la selección de muestras" });
+    }
+    return state === "done";
+  }, `que cargue el ejemplo ${example.id}`);
+  return vcf;
+}
+
 // Pulsa Analizar y acepta el aviso de límites si aparece. Devuelve true si apareció.
 async function analyze(page) {
   await page.click("#analyze-btn", { label: "«Analizar»" });
@@ -759,27 +827,7 @@ if (skipReason && IN_CI) {
       assert.ok(examples.length >= 3, "la app trae ejemplos incluidos");
 
       for (const example of examples) {
-        await page.click("#examples-menu > summary", { label: "el menú «Ejemplos»" });
-        await page.click(`[data-example="${example.id}"]`, { label: `el ejemplo ${example.id}` });
-        let vcf = null;
-        await until(async () => {
-          const state = await page.run(
-            (filename) => (__t.q("#dlg-confirm").open ? "confirm" : __t.q("#dlg-vcf").open ? "vcf" : __t.text("#notice-slot").includes(filename) ? "done" : ""),
-            example.filename
-          );
-          if (state === "confirm") {
-            await page.click('#dlg-confirm [data-close="ok"]', { label: "«Reemplazar»" });
-            await page.waitFor(() => !__t.q("#dlg-confirm").open, { label: "que cierre la confirmación" });
-          } else if (state === "vcf") {
-            vcf = await page.run(() => ({
-              child: __t.q("#vcf-child").selectedOptions[0].textContent,
-              parent: __t.q("#vcf-parent").selectedOptions[0].textContent,
-            }));
-            await page.click("#vcf-ok", { label: "«Usar muestras»" });
-            await page.waitFor(() => !__t.q("#dlg-vcf").open, { label: "que cierre la selección de muestras" });
-          }
-          return state === "done";
-        }, `que cargue el ejemplo ${example.id}`);
+        const vcf = await loadMenuExample(page, example);
         assert.equal(vcf !== null, example.vcf, `${example.id}: sólo los VCF piden elegir muestras`);
 
         await analyze(page);
@@ -847,6 +895,78 @@ if (skipReason && IN_CI) {
       } finally {
         await viewer.close();
       }
+    });
+
+    scenario("El reporte exportado se lee igual que la pantalla, con sus figuras, en teléfono y al imprimir", {}, async (page) => {
+      await openAnalysis(page);
+
+      const exportNow = () =>
+        page.download(async () => {
+          await page.click("#export-btn-2", { label: "«Exportar reporte»" });
+          await page.waitFor(() => __t.q("#dlg-export").open, { label: "el diálogo de exportación" });
+          await page.click('#dlg-export [data-close="ok"]', { label: "«Descargar reporte»" });
+        });
+
+      // abre el archivo exportado en una página aparte y devuelve lo que muestra
+      let files = 0;
+      const openExported = async (html, options, label) => {
+        const file = join(env.downloads, `reporte-${++files}.html`);
+        writeFileSync(file, html);
+        const viewer = await openPage({ allowed: ["file://"], ...options });
+        try {
+          await viewer.goto(pathToFileURL(file).href, { app: false });
+          const shown = await viewer.run(readExported);
+          assert.equal(await viewer.overflow(), 0, `${label}: el reporte exportado cabe a lo ancho`);
+          assert.deepEqual(viewer.problems, [], `${label}: el reporte exportado se abre sin errores ni peticiones`);
+          return shown;
+        } finally {
+          await viewer.close();
+        }
+      };
+      const sameReading = (shown, screen, label) => {
+        for (const key of ["tone", "verdict", "conclusion", "posterior", "cpi", "compatible", "total"]) {
+          assert.equal(shown[key], screen[key], `${label}: «${key}» es igual en el archivo y en la pantalla`);
+        }
+        assert.equal(shown.rows, screen.rows, `${label}: mismas filas de marcadores`);
+        assert.equal(shown.glyphs, screen.rows, `${label}: un esquema de alelos a la vista por marcador`);
+      };
+
+      // con soporte estadístico
+      await loadStartExample(page);
+      await analyze(page);
+      const screen = await page.run(readReport);
+      const report = await exportNow();
+
+      const desktop = await openExported(report.text, {}, "escritorio");
+      sameReading(desktop, screen, "escritorio");
+      assert.ok(desktop.supportWide > 400 && desktop.supportNarrow === 0, "en escritorio se ve la figura de soporte ancha");
+      assert.ok(desktop.zoneFill && desktop.zoneFill !== "rgb(0, 0, 0)", `la figura de soporte lleva sus colores (zona alta: ${desktop.zoneFill})`);
+      assert.ok(desktop.sharedFill && desktop.sharedFill !== "rgb(0, 0, 0)", `el alelo compartido lleva su color (${desktop.sharedFill})`);
+
+      const phone = await openExported(report.text, { width: 390, height: 844, mobile: true }, "teléfono");
+      sameReading(phone, screen, "teléfono");
+      assert.ok(phone.supportNarrow > 200 && phone.supportWide === 0, "en teléfono se ve la figura de soporte angosta");
+      assert.equal(phone.nameLines, 1, "en teléfono el nombre del marcador cabe en un renglón");
+      assert.ok(phone.glyphMinWidth >= 150 && phone.glyphRight <= 390, `en teléfono el esquema de alelos se ve completo (ancho mínimo ${phone.glyphMinWidth} px, borde derecho en ${phone.glyphRight} px)`);
+
+      const paper = await openExported(report.text, { width: 718, height: 1000, media: "print" }, "impresión");
+      sameReading(paper, screen, "impresión");
+      assert.ok(paper.supportWide > 400, "al imprimir se usa la figura de soporte ancha");
+      assert.ok(paper.tableRight <= paper.screenWidth, `al imprimir la tabla cabe en la hoja (${paper.tableRight} de ${paper.screenWidth} px)`);
+      assert.equal(paper.nameLines, 1, "al imprimir el nombre del marcador cabe en un renglón");
+      assert.ok(paper.glyphMinWidth >= 150 && paper.glyphRight <= paper.screenWidth, "al imprimir el esquema de alelos se ve completo");
+      assert.equal(desktop.nameLines, 1, "en escritorio el nombre del marcador cabe en un renglón");
+
+      // sin soporte estadístico (hay incongruencias): mismo veredicto y ninguna figura inventada
+      await page.click('#results-actions [data-goto="analysis"]', { label: "«Editar datos»" });
+      await page.waitFor(analysisVisible, { label: "volver a Análisis" });
+      await loadMenuExample(page, { id: "str_ce_no_compatible", filename: "str_ce_no_compatible.csv" });
+      await analyze(page);
+      const blockedScreen = await page.run(readReport);
+      assert.equal(blockedScreen.posterior, "—", "con incongruencias la pantalla no muestra probabilidad posterior");
+      const blocked = await openExported((await exportNow()).text, {}, "sin CPI");
+      sameReading(blocked, blockedScreen, "sin CPI");
+      assert.equal(blocked.supportWide + blocked.supportNarrow, 0, "sin CPI el archivo tampoco dibuja la figura de soporte");
     });
 
     scenario("Configuración: el tema oscuro y el color se aplican, se recuerdan y el reporte se dibuja igual", {}, async (page) => {

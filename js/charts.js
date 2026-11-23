@@ -572,7 +572,60 @@
     return s + "</svg>";
   }
 
+  /* ------------------------------------------------- cabecera y exportación */
+  // Las cifras de cabecera, con el mismo texto en la pantalla y en el reporte exportado.
+  function headline(result) {
+    var sup = support(result);
+    if (!sup) return { posterior: null, level: null, cpi: null, cpiNote: "sin índices válidos", blocked: blockedReason(result) };
+    var short = sup.degenerate || result.cpi >= 1e6 || result.cpi < 0.001;
+    return {
+      posterior: formatPosterior(sup.posterior, 2),
+      level: sup.level,
+      cpi: short ? cpiShortFromLog(sup.log10Cpi) : formatCpi(result.cpi),
+      cpiNote: "producto de " + sup.used.length + " PI",
+      blocked: "",
+    };
+  }
+
+  // Anchos de documento (px). El reporte exportado no puede medir su contenedor como la pantalla,
+  // así que las figuras se generan a un ancho fijo y el CSS del reporte las ajusta al papel.
+  var REPORT = { wide: 760, narrow: 340, glyph: 200, bar: 100, maxGlyphs: 300 };
+
+  // Las figuras del reporte en pantalla, listas para incrustarse en el HTML exportado.
+  // Sólo dependen del resultado: no llevan identificadores del caso.
+  function reportFigures(result) {
+    var sen = supportSentences(result);
+    var many = result.markers.length > REPORT.maxGlyphs;
+    var unit = glyphUnit(result, REPORT.glyph);
+    var max = piAxisMax(result);
+    var glyphs = [];
+    var bars = [];
+    result.markers.forEach(function (m) {
+      var k = E.statusClass(m);
+      // en paneles muy grandes el esquema se dibuja sólo donde hay algo que revisar
+      glyphs.push(many && k !== "bad" && k !== "warn" ? "" : alleleGlyph(m, unit, REPORT.glyph));
+      bars.push(piBar(m, max, REPORT.bar));
+    });
+    return {
+      headline: headline(result),
+      support: supportFigure(result, REPORT.wide),
+      supportNarrow: supportFigure(result, REPORT.narrow),
+      prior: priorStrip(result, REPORT.wide),
+      priorNarrow: priorStrip(result, REPORT.narrow),
+      sentences: sen ? { distance: sen.distance, composition: sen.composition, compositionAlert: sen.compositionAlert, prior: sen.prior } : null,
+      glyphs: glyphs,
+      glyphsPartial: many,
+      bars: bars,
+      piAxis: bars.some(Boolean) ? piAxis(max, REPORT.bar) : "",
+      repeatScale: result.markers.some(function (m) {
+        return m.child.concat(m.alleged_parent).some(function (a) { return repeatPos(a, m.marker) !== null; });
+      }),
+    };
+  }
+
   root.AriadnaCharts = {
+    headline: headline,
+    reportFigures: reportFigures,
     formatCpi: formatCpi,
     cpiShort: cpiShort,
     cpiShortFromLog: cpiShortFromLog,
