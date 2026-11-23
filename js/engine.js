@@ -296,7 +296,7 @@
   /* =====================================================================
    * Constantes
    * =================================================================== */
-  var ALGORITHM_VERSION = "ariADNa-triaje-v0.1.4";
+  var ALGORITHM_VERSION = "ariADNa-triaje-v0.2.0";
   var VCF_MIN_DP = 10;
   var VCF_MIN_GQ = 20;
 
@@ -307,6 +307,7 @@
     ["gt contiene alelo fuera", "genotipo VCF fuera de REF/ALT"],
     ["format no contiene gt", "VCF sin campo GT"],
     ["fila vcf con menos columnas", "fila VCF incompleta"],
+    ["posible coma decimal", "posible coma decimal en alelo STR"],
   ];
 
   var ASSAY_TYPES = {
@@ -369,9 +370,14 @@
     validation_warning: ["validation_warning", "validation_warnings", "advertencia", "advertencias"],
   };
 
-  var NA_FULL = new Set(["NA", "N/A", "ND", "NO DATA", "-", "."]);
-  var NA_PIECE = new Set(["NA", "N/A", "ND", "-", "."]);
-  var NA_SNP = new Set(["NA", "N/A", "ND", "NO DATA", "-", ".", "N"]);
+  var NA_FULL = new Set(["NA", "N/A", "ND", "NO DATA", "-", "."]); // celdas de PI
+  // Formas habituales de "sin dato" en exportaciones de laboratorio: nunca son un alelo.
+  var NA_EXTRA = ["--", "?", "??", "NAN", "NULL", "NONE", "#N/A", "NC", "NR", "NOCALL", "NO CALL", "SIN DATO", "SIN DATOS", "S/D"];
+  var NA_ALLELE_FULL = new Set(["NA", "N/A", "ND", "NO DATA", "-", "."].concat(NA_EXTRA));
+  var NA_PIECE = new Set(["NA", "N/A", "ND", "-", "."].concat(NA_EXTRA));
+  var NA_SNP = new Set(["NA", "N/A", "ND", "NO DATA", "-", ".", "N", "NN", "N/N", "N N"].concat(NA_EXTRA));
+  var SNP_NOCALL_RE = /^(?:-{2,}|N[\s/|,;_-]*N|NC|NO[\s_-]?CALL|\?+(?:[\s/|,;]*\?+)*|FAIL(?:ED)?|UNDETERMINED|INDETERMINADO|\.{2,})$/;
+  var SNP_PARTIAL_RE = /^(?:[ACGT0-9]\s*[/|,;]?\s*[N?.\-]|[N?.\-]\s*[/|,;]?\s*[ACGT0-9])$/;
 
   var IUPAC_SNP_CODES = {
     A: ["A", "A"],
@@ -386,7 +392,13 @@
     M: ["A", "C"],
   };
 
-  var NON_PATERNITY_MARKER_NAMES = new Set(["AMEL", "AMELX", "AMELY", "AMELOGENIN", "AMELOGENINA", "SRY"]);
+  var NON_PATERNITY_MARKER_NAMES = new Set([
+    "AMEL", "AMELX", "AMELY", "AMELOGENIN", "AMELOGENINA", "SRY",
+    "AM", "AMELXY", "AMELOGENINX", "AMELOGENINY", "AMELOGENINXY", "AMELOGENINAX", "AMELOGENINAY", "AMELOGENINAXY", "YINDEL",
+  ]);
+  // Marcadores de kits comunes ligados a X, a Y o mitocondriales, y coordenadas X/Y/M/MT.
+  var NON_AUTOSOMAL_NAMES = new Set(["HPRTB", "YGATAH4", "YGATAA10", "YGATAC4", "GATAH4", "MTDNA", "ADNMT"]);
+  var NON_AUTOSOMAL_COORD_RE = /^(?:(?:chr)?(?:X|Y|M|MT):\d|chr(?:X|Y|M|MT)(?:[:_-]|$))/i;
 
   var CONTROL_MARKER_TERMS = [
     "CONTROL",
@@ -415,7 +427,7 @@
   function normalizeAlleles(value) {
     if (value === null || value === undefined) return [];
     var text = pyStrip(pyStr(value));
-    if (!text || NA_FULL.has(text.toUpperCase())) return [];
+    if (!text || NA_ALLELE_FULL.has(text.toUpperCase())) return [];
     var pieces;
     if (/[,/|;]/.test(text)) {
       pieces = text.split(RE_ALLELE_SPLIT);
@@ -444,7 +456,11 @@
       return "Control técnico; se conserva como referencia, pero no entra al triaje de paternidad/maternidad.";
     }
     var prefixes = NON_AUTOSOMAL_PREFIXES.concat(["YSTR", "XSTR", "CHRY", "CHRX"]);
-    if (prefixes.some(function (p) { return compact.indexOf(p) === 0; })) {
+    if (
+      prefixes.some(function (p) { return compact.indexOf(p) === 0; }) ||
+      NON_AUTOSOMAL_NAMES.has(compact) ||
+      NON_AUTOSOMAL_COORD_RE.test(pyStrip(String(marker)))
+    ) {
       return "Marcador no autosómico; esta versión solo hace triaje dúo con marcadores autosómicos.";
     }
     return "";
@@ -454,6 +470,8 @@
     if (value === null || value === undefined) return [];
     var text = pyStrip(pyStr(value)).toUpperCase();
     if (!text || NA_SNP.has(text)) return [];
+    // un "no-call" (total o de un alelo) no es un genotipo: el marcador queda incompleto
+    if (SNP_NOCALL_RE.test(text) || SNP_PARTIAL_RE.test(text)) return [];
     if (/[,/|;]/.test(text)) return normalizeAlleles(text);
     if (RE_HAS_WS.test(text)) {
       var pieces = text.split(RE_SPLIT_WS).filter(function (p) { return p; });
@@ -463,6 +481,8 @@
     var chars = Array.from(compact);
     if (chars.length === 1 && hasOwn(IUPAC_SNP_CODES, compact)) return IUPAC_SNP_CODES[compact].slice();
     if (chars.length === 2 && chars.every(function (b) { return "ACGT0123".indexOf(b) !== -1; })) return chars;
+    // codificaciones de array: A/B (AA, AB, BB) e indeles (DD, DI, II)
+    if (chars.length === 2 && ["AB", "DI"].some(function (set) { return chars.every(function (b) { return set.indexOf(b) !== -1; }); })) return chars;
     return [text];
   }
 
@@ -510,6 +530,25 @@
     return "";
   }
 
+  // Clave de comparación de un alelo: iguala escrituras equivalentes sin tocar el texto capturado.
+  //   numérico  "12.0" = "12", "08" = "8", "9.30" = "9.3"
+  //   haplotipo "a-c-g" = "ACG" = "A_C_G"
+  //   resto     sin distinguir mayúsculas ni espacios
+  // El prefijo de tipo evita colisiones como "12 13" frente a "1213".
+  var RE_ZERO_WIDTH = /[\u200B\u200C\u200D\u2060\uFEFF]/g;
+  var RE_ANY_WS = new RegExp("[" + PY_WS + "]+", "g");
+  function alleleKey(allele) {
+    var t = pyStrip(String(allele).replace(RE_ZERO_WIDTH, ""));
+    if (/^\d+(?:\.\d+)?$/.test(t)) {
+      t = t.replace(/^0+(?=\d)/, "");
+      if (t.indexOf(".") !== -1) t = t.replace(/0+$/, "").replace(/\.$/, "");
+      return "n:" + t;
+    }
+    var u = t.toUpperCase().replace(RE_ANY_WS, "");
+    if (/^[ACGTN](?:[-_]?[ACGTN])+$/.test(u)) return "h:" + u.replace(/[-_]/g, "");
+    return "s:" + u;
+  }
+
   function markerCompatibility(child, allegedParent) {
     if (!child.length || !allegedParent.length) {
       return [null, "Faltan alelos/genotipo en hijo/a o progenitor/a alegado/a."];
@@ -517,6 +556,14 @@
     var parentSet = new Set(allegedParent);
     if (child.some(function (a) { return parentSet.has(a); })) {
       return [true, "Comparte al menos un alelo/haplotipo con el hijo/a."];
+    }
+    var parentKeys = new Map();
+    allegedParent.forEach(function (a) { if (!parentKeys.has(alleleKey(a))) parentKeys.set(alleleKey(a), a); });
+    for (var i = 0; i < child.length; i++) {
+      if (parentKeys.has(alleleKey(child[i]))) {
+        // tercer elemento: qué escrituras se igualaron (se avisa como advertencia de formato)
+        return [true, "Comparte al menos un alelo/haplotipo con el hijo/a.", child[i] + " = " + parentKeys.get(alleleKey(child[i]))];
+      }
     }
     return [false, "No comparte alelos/haplotipos observados; posible exclusión o requiere revisión por mutación/error."];
   }
@@ -619,6 +666,20 @@
     var generatedNote = compat[1];
     var reason = nonInformativeMarkerReason(marker);
     var dataWarnings = markerDataWarnings(marker || "(sin marcador)", assayType, child, alleged, !reason);
+    if (!reason && compat[2]) {
+      dataWarnings.push("Se igualaron formatos de alelo equivalentes para comparar (" + compat[2] + "); verifica que sea el mismo alelo.");
+    }
+    if (!reason && (assayType === "str_ce" || assayType === "str_mps")) {
+      // "9,3" en una celda de alelo: la coma separa valores, así que se leyó como 9 y 3
+      [["hijo/a", ROW_ALIASES.child_a1], ["hijo/a", ROW_ALIASES.child_a2], ["progenitor/a alegado/a", ROW_ALIASES.parent_a1], ["progenitor/a alegado/a", ROW_ALIASES.parent_a2]].forEach(function (cell) {
+        var raw = rowValue(row, cell[1]);
+        var m = raw === null || raw === undefined ? null : /^(\d{1,2})\s*,\s*([1-4])$/.exec(pyStrip(pyStr(raw)));
+        if (m) {
+          appendWarning(dataWarnings, "Posible coma decimal en " + cell[0] + ": «" + m[0] + "» se leyó como dos alelos (" + m[1] + " y " + m[2] +
+            "). Si es el microvariante " + m[1] + "." + m[2] + ", escríbelo con punto.");
+        }
+      });
+    }
     var importedWarning = pyStrip(pyStr(rowValue(row, ROW_ALIASES.validation_warning) || ""));
     if (importedWarning) {
       importedWarning.split(";").forEach(function (part) {
@@ -666,6 +727,34 @@
     return names + suffix;
   }
 
+  // Un locus debe contarse una sola vez: si se repite, su PI se multiplicaría dos veces.
+  function duplicateMarkerKey(name) {
+    return pyStrip(String(name)).toUpperCase().replace(/[\s_\-]+/g, ""); // conserva ":" y "." (1:2345 ≠ 12:345)
+  }
+
+  function duplicateMarkers(markers) {
+    var groups = new Map();
+    markers.forEach(function (m, i) {
+      if (!m.paternity_informative || m.marker === "(sin marcador)") return;
+      var key = duplicateMarkerKey(m.marker);
+      if (!groups.has(key)) groups.set(key, { marker: m.marker, rows: [] });
+      groups.get(key).rows.push(i);
+    });
+    return Array.from(groups.values()).filter(function (g) { return g.rows.length > 1; });
+  }
+
+  // Incongruencias contadas por locus distinto (una fila repetida no suma una segunda incongruencia).
+  function distinctExclusions(markers) {
+    var keys = new Set();
+    var unnamed = 0;
+    markers.forEach(function (m) {
+      if (!m.paternity_informative || m.compatible !== false) return;
+      if (m.marker === "(sin marcador)") unnamed += 1;
+      else keys.add(duplicateMarkerKey(m.marker));
+    });
+    return keys.size + unnamed;
+  }
+
   function analyzeMarkers(assayType, rows, priorProbability) {
     if (priorProbability === undefined) priorProbability = 0.5;
     if (!hasOwn(ASSAY_TYPES, assayType)) throw valueError("Tipo de ensayo no reconocido: " + assayType);
@@ -692,6 +781,8 @@
     var piOnNonInformative = nonInformative.filter(function (m) { return m.pi !== null; });
     var dataWarningMarkers = paternityMarkers.filter(function (m) { return m.data_warning; });
     var criticalWarningMarkers = paternityMarkers.filter(function (m) { return criticalDataWarningReason(m.data_warning); });
+    var duplicated = duplicateMarkers(markers);
+    var exclusionLoci = distinctExclusions(markers);
 
     var cpi = null;
     var posterior = null;
@@ -723,6 +814,13 @@
     if (dataWarningMarkers.length) {
       warnings.push(dataWarningMarkers.length + " marcador(es) tienen advertencias de formato/calidad: " + namesWithSuffix(dataWarningMarkers) + ".");
     }
+    if (duplicated.length) {
+      canCompute = false;
+      warnings.push(
+        "No se calcula CPI/probabilidad posterior porque hay marcadores repetidos: " + namesWithSuffix(duplicated) +
+          ". Deja una sola fila por marcador; los conteos incluyen las filas repetidas."
+      );
+    }
     if (criticalWarningMarkers.length) {
       canCompute = false;
       warnings.push(
@@ -742,7 +840,7 @@
       warnings.push("No se ingresaron PI por marcador; el resultado es compatibilidad preliminar, no conclusión estadística.");
     }
 
-    if (piValues.length && compatibleWithoutPi.length && !exclusions && !piWarnings.length) {
+    if (piValues.length && compatibleWithoutPi.length && !exclusions && !piWarnings.length && !duplicated.length) {
       warnings.push(
         "CPI/probabilidad posterior usan solo los " + piValues.length + " marcador(es) con PI capturado; " +
           compatibleWithoutPi.length + " marcador(es) compatibles no tienen PI."
@@ -750,9 +848,9 @@
     }
 
     var conclusion;
-    if (exclusions >= 2) {
+    if (exclusionLoci >= 2) {
       conclusion = "Triaje: patrón no compatible en los datos capturados; confirma con laboratorio/peritaje antes de concluir exclusión.";
-    } else if (exclusions === 1) {
+    } else if (exclusions >= 1) {
       conclusion = "Triaje: una incongruencia aislada; revisa mutación, calidad, transcripción y confirma con laboratorio.";
     } else if (informative === 0) {
       conclusion = "Triaje: no hay marcadores suficientes para orientar el caso.";
@@ -760,6 +858,8 @@
       conclusion = "Triaje: patrón compatible a nivel mendeliano, pero corrige los PI antes de interpretar soporte estadístico.";
     } else if (criticalWarningMarkers.length) {
       conclusion = "Triaje: patrón compatible a nivel mendeliano, pero corrige las advertencias críticas antes de interpretar soporte estadístico.";
+    } else if (duplicated.length) {
+      conclusion = "Triaje: patrón compatible a nivel mendeliano, pero hay marcadores repetidos; deja una sola fila por marcador antes de interpretar soporte estadístico.";
     } else if (cpi !== null && posterior !== null) {
       if (posterior >= 0.999) {
         conclusion = "Triaje: patrón compatible con soporte estadístico alto capturado; requiere validación pericial.";
@@ -1222,6 +1322,11 @@
       var alt = parts[4];
       var filterValue = parts.length > 6 ? parts[6] : ".";
       var marker = markerId && markerId !== "." ? markerId : chrom + ":" + pos;
+      var sexContig = /^(?:chr)?(X|Y|M|MT)$/i.exec(pyStrip(chrom));
+      if (sexContig) {
+        // así la regla de marcadores no autosómicos los reconoce aunque traigan rsID
+        marker = "chr" + sexContig[1].toUpperCase().charAt(0) + ":" + pos + (markerId && markerId !== "." ? " " + markerId : "");
+      }
       var alleles = [ref].concat(alt === "." ? [] : alt.split(","));
       var rowWarnings = [];
       if (filterValue !== "PASS" && filterValue !== ".") {
@@ -1319,10 +1424,175 @@
   }
 
   function bannerMeta(result) {
-    if (result.exclusions >= 2) return ["bad", "Triaje: patrón no compatible"];
+    if (distinctExclusions(result.markers) >= 2) return ["bad", "Triaje: patrón no compatible"];
     if (result.total_markers === 0) return ["warn", "Sin marcadores útiles"];
-    if (result.exclusions === 1 || result.missing_markers) return ["warn", "Requiere revisión"];
+    if (result.exclusions >= 1 || result.missing_markers) return ["warn", "Requiere revisión"];
     return ["ok", "Triaje: patrón compatible"];
+  }
+
+  /* =====================================================================
+   * Observaciones de control (capa adicional de la versión web)
+   *
+   * Comprobaciones que un perito haría al ver la tabla y que no requieren
+   * frecuencias poblacionales. Se calculan a partir del resultado y NO lo
+   * modifican: devuelven [{code, level: "alert"|"info", title, text, verdict?}].
+   * Una observación "alert" impide presentar el veredicto en verde.
+   * =================================================================== */
+  function plural(n, one, many) {
+    return n + " " + (n === 1 ? one : many);
+  }
+
+  function listNames(list) {
+    var names = list.slice(0, 5).map(function (m) { return m.marker; }).join(", ");
+    return names + (list.length > 5 ? " y " + (list.length - 5) + " más" : "");
+  }
+
+  function strStep(m) {
+    // distancia mínima, en repeticiones, entre un alelo del hijo/a y uno del progenitor/a con la misma parte decimal
+    var parse = function (a) {
+      var r = /^(\d+)(?:\.(\d+))?$/.exec(alleleKey(a).slice(2));
+      return r ? { whole: Number(r[1]), frac: r[2] || "" } : null;
+    };
+    var child = m.child.map(parse);
+    var parent = m.alleged_parent.map(parse);
+    if (!child.length || !parent.length || child.concat(parent).some(function (x) { return x === null; })) return null;
+    var best = null;
+    child.forEach(function (c) {
+      parent.forEach(function (q) {
+        if (c.frac !== q.frac) return;
+        var d = Math.abs(c.whole - q.whole);
+        if (best === null || d < best) best = d;
+      });
+    });
+    var single = function (list) { return new Set(list.map(alleleKey)).size === 1; };
+    return { steps: best, oppositeHomozygotes: single(m.child) && single(m.alleged_parent) };
+  }
+
+  function triageInsights(result) {
+    var out = [];
+    var assay = result.assay_type;
+    var isStr = assay === "str_ce" || assay === "str_mps";
+    var informative = result.markers.filter(function (m) { return m.paternity_informative; });
+    var compatible = informative.filter(function (m) { return m.compatible === true; });
+    var incongruent = informative.filter(function (m) { return m.compatible === false; });
+    var withPi = compatible.filter(function (m) { return m.pi !== null && m.pi > 0; });
+    var push = function (code, level, title, text, verdict) {
+      var item = { code: code, level: level, title: title, text: text };
+      if (verdict) item.verdict = verdict;
+      out.push(item);
+    };
+
+    // 1) perfiles idénticos: misma muestra capturada dos veces, intercambio o columna copiada
+    var complete = informative.filter(function (m) { return m.child.length === 2 && m.alleged_parent.length === 2; });
+    var sameGenotype = function (m) {
+      var a = m.child.map(alleleKey).sort().join("|");
+      return a === m.alleged_parent.map(alleleKey).sort().join("|");
+    };
+    var het = complete.filter(function (m) { return alleleKey(m.child[0]) !== alleleKey(m.child[1]); });
+    if (complete.length && complete.every(sameGenotype) && het.length >= 10) {
+      push("perfiles_identicos", "alert", "Los dos perfiles son idénticos",
+        "Hijo/a y progenitor/a alegado/a tienen el mismo genotipo en los " + complete.length + " marcadores completos. Entre progenitor/a e hijo/a eso es muy improbable (menos de 1 entre 1000 con " +
+        het.length + " marcadores heterocigotos): revisa si se capturó dos veces la misma muestra, si hubo intercambio o contaminación, o si se copió una columna.");
+    }
+
+    // 2) más de dos alelos en una persona: mezcla, contaminación o formato inesperado
+    var multi = informative.filter(function (m) {
+      return (new Set(m.child.map(alleleKey)).size > 2 || new Set(m.alleged_parent.map(alleleKey)).size > 2) && m.data_warning.indexOf("Posible coma decimal") === -1;
+    });
+    if (multi.length >= 2) {
+      push("mas_de_dos_alelos", "alert", "Varios marcadores con más de dos alelos",
+        plural(multi.length, "marcador tiene", "marcadores tienen") + " más de dos alelos en una misma persona (" + listNames(multi) +
+        "): patrón de mezcla, contaminación o formato de captura no esperado. Con más de dos alelos es más fácil compartir uno por azar; no interpretes la compatibilidad ni el CPI hasta aclararlo.");
+    } else if (multi.length === 1) {
+      push("mas_de_dos_alelos", "info", "Un marcador con más de dos alelos",
+        multi[0].marker + " tiene más de dos alelos en una persona (patrón trialélico, mezcla o error de captura); revísalo con el laboratorio.");
+    }
+
+    // 3) índice del laboratorio que contradice la compatibilidad del dúo
+    var lowPi = compatible.filter(function (m) { return m.pi !== null && m.pi < 0.25; });
+    if (lowPi.length && !incongruent.length) {
+      push("pi_contradice_duo", "alert", "Índices de nivel de exclusión en marcadores compatibles",
+        "El laboratorio reporta un índice menor que 0.25 en " + plural(lowPi.length, "marcador", "marcadores") + " donde hijo/a y progenitor/a alegado/a sí comparten un alelo: " + listNames(lowPi) +
+        ". Con las fórmulas habituales, en una comparación de dos personas un marcador compatible no da un PI menor que 0.25; suele significar que el laboratorio calculó con el otro progenitor (trío) y halló una incongruencia que esta comparación no ve, que hay un error de transcripción o que la columna no contiene índices de paternidad. Trátalo como incongruencia hasta aclararlo con el laboratorio.");
+    }
+
+    // 4) el CPI capturado no apoya la relación
+    if (result.cpi !== null && result.cpi <= 1 && !lowPi.length) {
+      push("cpi_no_apoya", "alert", "Los índices capturados no apoyan la relación",
+        "El CPI es menor o igual que 1: los índices del laboratorio no favorecen el parentesco aunque los marcadores compartan alelos. Revisa los PI con el laboratorio.");
+    }
+
+    // 5) el nivel de soporte cambia sólo por la previa elegida
+    if (result.cpi !== null && Number.isFinite(result.cpi) && result.cpi > 1 && result.posterior_probability !== null && result.prior_probability_used !== 0.5) {
+      var neutral = (0.5 * result.cpi) / (0.5 * result.cpi + (1 - 0.5));
+      var level = function (p) { return p >= 0.999 ? "alto" : p >= 0.95 ? "moderado" : "limitado"; };
+      if (level(neutral) !== level(result.posterior_probability)) {
+        push("nivel_depende_de_previa", "info", "El nivel de soporte depende de la previa elegida",
+          "Con una previa neutral de 0.50 la lectura sería «" + level(neutral) + "»; con la previa elegida (" + pyFormatF(result.prior_probability_used, 2) +
+          ") es «" + level(result.posterior_probability) + "». Esa diferencia viene de la previa, no del ADN: el peso de la evidencia genética es el CPI.");
+      }
+    }
+
+    // 6) anatomía de las incongruencias en STR: orienta, no decide
+    if (isStr && incongruent.length) {
+      var parts = [];
+      incongruent.slice(0, 5).forEach(function (m) {
+        var s = strStep(m);
+        if (!s) return;
+        var a = m.child.join("/") + " frente a " + m.alleged_parent.join("/");
+        if (s.oppositeHomozygotes) parts.push(m.marker + " (" + a + "): homocigotos aparentes distintos; además de mutación o de no parentesco, es compatible con un alelo nulo o silencioso.");
+        else if (s.steps === null) parts.push(m.marker + " (" + a + "): los alelos sólo difieren en la parte decimal (microvariante); revisa la nomenclatura.");
+        else if (s.steps === 1) parts.push(m.marker + " (" + a + "): a un paso de repetición; compatible con una mutación de un paso (la más frecuente), pero también es habitual entre personas sin parentesco.");
+        else if (s.steps === 2) parts.push(m.marker + " (" + a + "): a dos pasos de repetición; como mutación es poco frecuente.");
+        else parts.push(m.marker + " (" + a + "): a " + s.steps + " pasos de repetición; poco compatible con una mutación simple.");
+      });
+      if (parts.length) {
+        push("anatomia_incongruencias", "info", "Cómo son las incongruencias",
+          parts.join(" ") + " Es una orientación; el laboratorio debe valorar la mutación con su modelo y sus frecuencias.");
+      }
+    }
+
+    // 7) incongruencias apoyadas en genotipos de baja calidad
+    var lowQ = incongruent.filter(function (m) {
+      return m.data_warning.indexOf("DP bajo") !== -1 || m.data_warning.indexOf("GQ bajo") !== -1 || criticalDataWarningReason(m.data_warning);
+    });
+    if (lowQ.length) {
+      push("incongruencias_baja_calidad", "info", "Incongruencias con advertencias de calidad",
+        lowQ.length + " de las " + incongruent.length + " incongruencia(s) se apoyan en genotipos de baja calidad o con advertencias de importación (" + listNames(lowQ) +
+        "). Un heterocigoto leído como homocigoto por baja cobertura produce incongruencias falsas; repite o filtra esos sitios antes de interpretar.");
+    }
+
+    // 8) pocos marcadores: compartir un alelo en pocos loci también ocurre sin parentesco
+    var n = compatible.length;
+    if (!incongruent.length && n >= 1) {
+      if (assay === "snp_panel") {
+        var x = 100 * Math.pow(7 / 8, n); // cota exacta para SNP bialélicos, sin frecuencias
+        if (x >= 1) {
+          push("pocos_marcadores", x >= 10 ? "alert" : "info", "Pocos SNP para orientar",
+            "Con " + n + " SNP compatibles la compatibilidad dice poco: al menos " + Math.floor(x) + " de cada 100 personas sin parentesco tampoco mostrarían ninguna incongruencia en " + n + " SNP bialélicos.",
+            x >= 10 ? "Compatible, con muy pocos marcadores" : undefined);
+        }
+      } else if (n < 10) {
+        push("pocos_marcadores", n < 5 ? "alert" : "info", "Pocos marcadores compatibles",
+          "Sólo hay " + plural(n, "marcador compatible", "marcadores compatibles") + ". Con tan pocos, una persona sin parentesco puede compartir " +
+          (assay === "microhap" ? "un haplotipo" : "un alelo") + " en todos por azar" + (isStr ? "; los paneles de parentesco usan habitualmente 15 o más STR." : "."),
+          n < 5 ? "Compatible, con muy pocos marcadores" : undefined);
+      }
+    }
+
+    // 9) plausibilidad de los índices
+    var limit = assay === "snp_panel" ? 100 : 1000;
+    var huge = withPi.filter(function (m) { return m.pi > limit; });
+    if (huge.length) {
+      push("pi_atipico", "alert", "Índice atípicamente alto",
+        "PI atípicamente alto en " + huge.slice(0, 5).map(function (m) { return m.marker + " (" + pyRepr(m.pi) + ")"; }).join(", ") +
+        ". Un índice por marcador rara vez supera " + limit + "; revisa si se escribió el CPI total o hay un error de dígitos.");
+    }
+    if (result.cpi !== null && withPi.length === 1 && compatible.length > 1) {
+      push("cpi_un_marcador", "info", "El CPI proviene de un solo marcador",
+        "Sólo " + withPi[0].marker + " tiene índice: el CPI mostrado no es un índice combinado de todos los marcadores compatibles.");
+    }
+    return out;
   }
 
   /* =====================================================================
@@ -1389,6 +1659,9 @@
     parsePiWithWarning: parsePiWithWarning,
     criticalDataWarningReason: criticalDataWarningReason,
     markerCompatibility: markerCompatibility,
+    alleleKey: alleleKey,
+    duplicateMarkers: duplicateMarkers,
+    triageInsights: triageInsights,
     validateCsvColumns: validateCsvColumns,
     markerDataWarnings: markerDataWarnings,
     rowToMarker: rowToMarker,

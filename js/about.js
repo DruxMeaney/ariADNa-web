@@ -11,6 +11,7 @@
     ["teoria-estadistica", "Teoría 2 · del índice a la probabilidad"],
     ["metodologia", "Hoja metodológica"],
     ["estandares", "Estándares y límites"],
+    ["normativa", "Marco normativo"],
     ["glosario", "Glosario"],
     ["faq", "Preguntas frecuentes"],
     ["uso-responsable", "Uso responsable"],
@@ -37,48 +38,9 @@
 
     /* ---------------------------------------------------------- tutorial */
     '<section id="tutorial">' +
-    "<h2>Cómo usar ariADNa paso a paso</h2>" +
-    "<p>La app compara al hijo o hija contra el progenitor/a alegado/a (padre o madre; comparación tipo dúo): un marcador es compatible si ambos comparten al menos un alelo, genotipo o haplotipo observado; si no comparten ninguno, se marca como incongruencia.</p>" +
-    "<h3>a) Mapa rápido de la pantalla</h3>" +
-    "<ul>" +
-    "<li><strong>Pestañas.</strong> Análisis (donde trabajas), Resultados (donde lees la lectura de triaje) y Acerca de (qué hace y qué no hace la app).</li>" +
-    "<li><strong>1 · Datos del caso.</strong> Campos para identificar el caso, hijo/a y progenitor/a alegado/a. Son etiquetas para el reporte; no afectan el cálculo.</li>" +
-    "<li><strong>2 · Parámetros.</strong> La probabilidad previa (opcional), explicada más abajo.</li>" +
-    "<li><strong>3 · Datos del laboratorio.</strong> Elige «Resultados procesados» o «Datos crudos», el tipo de ensayo, y captura o importa los marcadores en la tabla.</li>" +
-    "<li><strong>Barra inferior.</strong> Analizar ejecuta la comparación; Exportar HTML genera el reporte; Limpiar caso borra los datos en memoria.</li>" +
-    "</ul>" +
-    "<h3>b) Los 3 pasos</h3>" +
-    "<ol>" +
-    "<li><strong>Elige el ensayo.</strong> Escoge el tipo de análisis que hizo tu laboratorio. Esto define qué columnas tendrá la tabla.</li>" +
-    "<li><strong>Captura o importa.</strong> Escribe los datos marcador por marcador, pega celdas desde una hoja de cálculo, o importa un archivo CSV/TSV (o un VCF en la sección SNP, eligiendo qué muestra es hijo/a y cuál es progenitor/a alegado/a).</li>" +
-    "<li><strong>Analiza.</strong> Pulsa Analizar. La app compara cada marcador y muestra la lectura de triaje en la pestaña Resultados.</li>" +
-    "</ol>" +
-    "<h3>c) Cómo capturar a mano, por tipo de ensayo</h3>" +
-    "<p>En cada celda puedes escribir uno o varios valores separados por coma, diagonal, barra vertical o punto y coma. Para SNP también se aceptan genotipos compactos como <code>AG</code> o códigos IUPAC simples como <code>R</code>. Los valores <code>NA</code>, <code>ND</code> o vacíos se ignoran. La columna «Índice laboratorio» acepta el índice por marcador que aporta tu laboratorio (PI, MI o LR equivalente); es opcional y ariADNa no lo calcula.</p>" +
-    '<div class="callout"><span class="tag">STR por PCR y electroforesis capilar</span>Marcador D3S1358: alelos del hijo/a = 15 y 16; alelos del progenitor = 16 y 17. Comparten el 16, así que el marcador es compatible. Si tu laboratorio dio un PI para ese marcador (p. ej. 1.8), escríbelo en la columna del índice.</div>' +
-    '<div class="callout"><span class="tag">STR por MPS/NGS</span>Se captura igual que los STR capilares; cambia la tecnología, no la forma de escribirlos. Marcador vWA: hijo/a = 17 y 18; progenitor = 19 y 20. No comparten ningún alelo: es una incongruencia (posible exclusión, sujeta a revisión).</div>' +
-    '<div class="callout"><span class="tag">SNP panels / SNP arrays</span>Cada marcador tiene un genotipo por persona. Marcador rs1799971: genotipo del hijo/a = AG; genotipo del progenitor = GG. Comparten el alelo G: compatible.</div>' +
-    '<div class="callout"><span class="tag">Microhaplotipos por NGS/MPS</span>Cada persona presenta dos haplotipos por marcador. Marcador mh01: hijo/a = ACG y TCA; progenitor = TCA y GGT. Comparten el haplotipo TCA: compatible.</div>' +
-    "<h3>d) Cómo importar CSV/TSV (y VCF)</h3>" +
-    "<p>La primera fila del archivo debe contener nombres de columnas reconocibles. Según el ensayo, usa estas columnas:</p>" +
-    '<div class="table-scroll"><table><thead><tr><th>Ensayo</th><th>Columnas del archivo</th></tr></thead><tbody>' +
-    '<tr><td>STR capilar</td><td><code>marker, child_a1, child_a2, parent_a1, parent_a2, pi, note</code></td></tr>' +
-    '<tr><td>STR por MPS/NGS</td><td><code>marker, child_a1, child_a2, parent_a1, parent_a2, pi, note</code></td></tr>' +
-    '<tr><td>SNP panels / arrays</td><td><code>marker, child_genotype, parent_genotype, pi, note</code></td></tr>' +
-    '<tr><td>Microhaplotipos</td><td><code>marker, child_a1, child_a2, parent_a1, parent_a2, pi, note</code></td></tr>' +
-    "</tbody></table></div>" +
-    "<p>Las columnas <code>pi</code> y <code>note</code> son opcionales. También se aceptan alias en español como <code>marcador</code>, <code>hijo_a1</code>, <code>progenitor_genotipo</code> o <code>indice_paternidad</code>. Límites de importación: 10 MB y 5000 filas por archivo; los encabezados duplicados se rechazan para no reinterpretar columnas.</p>" +
-    '<div class="callout"><span class="tag">Nota sobre el VCF</span>Puedes importar un VCF con dos o más muestras; ariADNa te pide elegir cuál es hijo/a y cuál es progenitor/a alegado/a. Si trae más de dos muestras o los nombres parecen invertidos, la app avisa. También deja advertencias por <code>FILTER</code>, genotipos <code>./.</code>, sitios multialélicos, <code>DP</code> bajo y <code>GQ</code> bajo cuando esos campos existen; las críticas bloquean CPI/probabilidad posterior. Estas alertas no sustituyen el control de calidad del laboratorio.</div>' +
-    "<h3>e) La probabilidad previa (opcional)</h3>" +
-    "<p>Es la probabilidad que asignas <em>antes</em> de ver los resultados de laboratorio de que el progenitor/a alegado/a sea realmente el biológico. Si la dejas vacía, ariADNa usa 0.50, un valor neutral. Sólo influye cuando tu laboratorio aportó índices válidos. Si no hay incongruencias, índices inválidos/ambiguos ni advertencias críticas, la app combina los índices en un CPI y lo mezcla con la previa para obtener la probabilidad posterior (W):</p>" +
-    "<pre>CPI = PI₁ × PI₂ × … × PIₙ\nW   = (CPI × previa) / (CPI × previa + (1 − previa))</pre>" +
-    "<h3>f) Cómo leer el resultado y exportar</h3>" +
-    "<ol>" +
-    "<li><strong>2 o más incongruencias</strong> → no compatible en esta revisión preliminar. No se calcula CPI/probabilidad posterior hasta confirmar esos datos con laboratorio o peritaje.</li>" +
-    "<li><strong>Exactamente 1 incongruencia</strong> → requiere revisión. Puede deberse a una mutación, un alelo nulo o un error de captura o de calidad.</li>" +
-    "<li><strong>Sin incongruencias</strong> → patrón compatible. El soporte se describe según la probabilidad posterior sólo si hay PI válidos; sin PI, sólo compatibilidad mendeliana.</li>" +
-    "</ol>" +
-    "<p>Con un resultado, el botón Exportar HTML genera un reporte con los datos del caso, la tabla marcador por marcador, las incongruencias y la lectura de triaje. Puedes exportarlo anonimizado (recomendado). Ábrelo en cualquier navegador y consérvalo sólo en ubicaciones autorizadas.</p>" +
+    "<h2>Cómo usarla</h2>" +
+    "<p>El tutorial paso a paso (cargar datos, importar archivos, la probabilidad previa, cómo leer el reporte y los atajos de teclado) está en <strong>Configuración › Ayuda</strong>, el engrane de la barra superior.</p>" +
+    '<p><button class="btn" type="button" data-open-help>Abrir la ayuda</button></p>' +
     "</section>" +
 
     /* --------------------------------------------------- teoría: herencia */
@@ -145,7 +107,17 @@
     "<li><strong>Qué no calcula:</strong> PI/LR desde genotipos, frecuencias poblacionales mexicanas/latinoamericanas, mutaciones, alelos nulos, coancestría, ligamiento, mezclas, contaminación, degradación, identidad de muestras ni cadena de custodia.</li>" +
     "<li><strong>Regla clave:</strong> si hay incongruencias no resueltas, PI inválidos/ambiguos, PI=0 en marcador compatible o advertencias críticas de importación, ariADNa bloquea CPI/W y pide revisión.</li>" +
     "</ul>" +
-    "<p>Sus pruebas automáticas fijan cada conteo, CPI, advertencia y reporte contra una referencia verificada, de modo que ningún cambio puede alterar los resultados sin que se detecte.</p>" +
+    "<h3>Novedades del algoritmo v0.2</h3>" +
+    "<ul>" +
+    "<li><strong>Alelos equivalentes.</strong> «12.0» y «12», «08» y «8», o «a-c-g» y «ACG» se comparan como el mismo alelo, con una advertencia de formato; antes contaban como incongruencia.</li>" +
+    "<li><strong>Sin dato.</strong> Valores como <code>--</code>, <code>NN</code>, <code>nan</code> o <code>?</code> dejan el marcador incompleto: nunca cuentan como alelo compartido ni como incongruencia.</li>" +
+    "<li><strong>Marcadores no autosómicos.</strong> Reconoce más marcadores de sexo y ligados a X o Y de los kits comunes, y los sitios de los cromosomas X, Y y mitocondrial de un VCF aunque traigan rsID.</li>" +
+    "<li><strong>Marcadores repetidos.</strong> Si un locus aparece dos veces, no se calcula el CPI (su índice se multiplicaría dos veces) y una incongruencia repetida cuenta una sola vez.</li>" +
+    "<li><strong>Coma decimal.</strong> Un alelo STR escrito «9,3» se señala y bloquea el CPI en lugar de leerse en silencio como los alelos 9 y 3.</li>" +
+    "<li><strong>Observaciones de control.</strong> Una capa adicional avisa de perfiles idénticos, más de dos alelos por persona, índices que contradicen la compatibilidad, índices atípicos, pocos marcadores y de cómo son las incongruencias en STR. No cambia el cálculo: señala lo que conviene revisar.</li>" +
+    "<li><strong>Números robustos.</strong> Un CPI enorme ya no se muestra como «inf» ni la probabilidad como «nan» o «100 %».</li>" +
+    "</ul>" +
+    "<p>Sus pruebas automáticas fijan cada conteo, CPI, advertencia y reporte contra una referencia verificada, de modo que ningún cambio puede alterar los resultados sin que se detecte. La referencia de la versión 0.1.4 se sigue reproduciendo exactamente; las novedades sólo actúan sobre entradas que antes se leían mal.</p>" +
     "</section>" +
 
     /* -------------------------------------------------------- estándares */
@@ -162,6 +134,49 @@
     "<li>No usa frecuencias poblacionales ni calcula el PI: el PI, si existe, lo aporta el laboratorio.</li>" +
     "<li>No modela mutaciones ni alelos nulos; sólo los señala como posibles causas.</li>" +
     "<li>No analiza tríos ni parentescos complejos.</li>" +
+    "</ul>" +
+    "</section>" +
+
+    /* --------------------------------------------------------- normativa */
+    '<section id="normativa">' +
+    "<h2>Marco normativo: ¿hay una ISO o una NOM que cumplir?</h2>" +
+    '<div class="callout key"><span class="tag">Respuesta corta</span>No existe una norma ISO específica para pruebas genéticas de paternidad o parentesco, y no localizamos ninguna Norma Oficial Mexicana (NOM) dedicada a ellas. Las normas técnicas que sí aplican obligan —por la vía de la acreditación— al <strong>laboratorio</strong> que procesa las muestras y emite el informe, no a una herramienta que ayuda a leer resultados ya emitidos. Por eso ariADNa no está «certificada» ni declara conformidad con ninguna norma.</div>' +
+    '<div class="callout warn"><span class="tag">Alcance de esta sección</span>Es información general, no asesoría legal. Se revisó en noviembre de 2026 contra las fuentes citadas al final; verifica el texto vigente de cada norma o ley antes de citarla.</div>' +
+    "<h3>Normas que aplican al laboratorio</h3>" +
+    '<div class="table-scroll"><table><thead><tr><th>Norma</th><th>Qué cubre</th><th>Carácter</th></tr></thead><tbody>' +
+    "<tr><td><strong>ISO/IEC 17025:2017</strong><br><span class=\"muted\">En México: NMX-EC-17025-IMNC-2018, idéntica</span></td><td>Competencia de los laboratorios de ensayo: validación de métodos, control de datos y verificación de cálculos (cláusula 7.11), informe de resultados (7.8). Es la base de la acreditación, que en México otorga la Entidad Mexicana de Acreditación (ema).</td><td>Voluntaria, salvo que una ley, una autoridad o un contrato la exija.</td></tr>" +
+    "<tr><td><strong>ISO 21043</strong>, partes 1 a 5<br><span class=\"muted\">Ciencias forenses (2018–2025)</span></td><td>El proceso forense completo. La parte 4 trata la interpretación y la parte 5, el informe.</td><td>Voluntaria.</td></tr>" +
+    "<tr><td><strong>ISO 18385:2016</strong></td><td>Consumibles de grado forense, libres de ADN humano contaminante.</td><td>Se dirige a los fabricantes.</td></tr>" +
+    "<tr><td><strong>ISO/IEC 17043:2023</strong></td><td>Proveedores de ensayos de aptitud (las intercomparaciones en las que participa el laboratorio).</td><td>Se dirige al proveedor del ensayo.</td></tr>" +
+    "<tr><td><strong>ISO 15189:2022</strong></td><td>Laboratorios clínicos. Sólo es relevante si quien emite el resultado es un laboratorio clínico.</td><td>Según el caso.</td></tr>" +
+    "<tr><td><strong>AABB · Standards for Relationship Testing Laboratories</strong><br><span class=\"muted\">17.ª edición, vigente desde enero de 2026</span></td><td>La norma sectorial específica de pruebas de parentesco (no es ISO).</td><td>Voluntaria; exigida en la práctica para ciertos trámites migratorios de EE. UU.</td></tr>" +
+    "<tr><td><strong>Recomendaciones de la ISFG</strong><br><span class=\"muted\">2002, 2007 y 2016</span></td><td>Buenas prácticas científicas: índice de paternidad como razón de verosimilitud, mutaciones, probabilidad previa declarada y validación del software de cálculo.</td><td>Recomendación científica.</td></tr>" +
+    "</tbody></table></div>" +
+    "<h3>En México</h3>" +
+    "<ul>" +
+    "<li><strong>NOM.</strong> No localizamos ninguna Norma Oficial Mexicana específica para pruebas de paternidad por ADN ni para laboratorios de genética forense. Las NOM sanitarias (por ejemplo, las de laboratorios clínicos y de residuos biológico-infecciosos) regulan el funcionamiento del laboratorio, no la interpretación del parentesco.</li>" +
+    "<li><strong>NMX.</strong> La adopción nacional de ISO/IEC 17025 es la NMX-EC-17025-IMNC-2018 (declaratoria de vigencia en el DOF del 9 de agosto de 2018). Conforme a la Ley de Infraestructura de la Calidad (DOF, 1 de julio de 2020), los estándares son de aplicación voluntaria salvo que una NOM, una autoridad, un contrato o una ley los exija, o que alguien declare que su producto es conforme con ellos.</li>" +
+    "<li><strong>Juicios de filiación.</strong> La prueba idónea es la pericial en genética molecular ordenada por la autoridad judicial y practicada por peritos. La Suprema Corte ha sostenido (por ejemplo, en el amparo directo en revisión 2944/2017) que la negativa a practicarla puede activar la presunción de paternidad prevista en la legislación civil local. ariADNa no sustituye esa prueba.</li>" +
+    "<li><strong>Datos personales.</strong> La legislación mexicana trata la información genética como dato personal sensible. Su tratamiento por particulares se rige por la Ley Federal de Protección de Datos Personales en Posesión de los Particulares (nueva ley publicada en el DOF el 20 de marzo de 2025; su vigilancia corresponde a la Secretaría Anticorrupción y Buen Gobierno) y, en el sector público, por la ley general de la materia. Esas obligaciones recaen en quien recaba y trata los datos —el laboratorio, la institución o la persona usuaria—: ariADNa no recibe ni almacena datos.</li>" +
+    "</ul>" +
+    "<h3>Qué hace ariADNa al respecto</h3>" +
+    "<ul>" +
+    "<li><strong>No declara conformidad.</strong> No es un laboratorio, no está acreditada ni certificada, y lo dice antes de cada análisis y en cada reporte.</li>" +
+    "<li><strong>Cálculos verificables.</strong> Las fórmulas están documentadas en esta página, cada reporte imprime la versión del algoritmo y las pruebas automáticas comparan cada resultado contra una referencia congelada. Es el espíritu de la cláusula 7.11 de ISO/IEC 17025 y de las recomendaciones de la ISFG sobre validación de software, sin reclamar su cumplimiento.</li>" +
+    "<li><strong>Privacidad por diseño.</strong> Todo se procesa en el navegador: sin servidor, sin red y sin almacenamiento de datos del caso.</li>" +
+    "<li><strong>Accesibilidad.</strong> La interfaz se diseñó siguiendo las pautas WCAG 2.2 (ISO/IEC 40500:2025) en contraste, teclado y movimiento reducido, sin declarar una conformidad formal.</li>" +
+    "<li><strong>Si un laboratorio acreditado quisiera usarla</strong> dentro de su proceso, le correspondería a ese laboratorio validarla internamente.</li>" +
+    "</ul>" +
+    "<h3>Fuentes consultadas</h3>" +
+    '<ul class="refs">' +
+    "<li>" + '<a href="https://www.iso.org/standard/66912.html" target="_blank" rel="noopener noreferrer">ISO/IEC 17025:2017</a> y catálogo del comité <a href="https://www.iso.org/committee/4395817.html" target="_blank" rel="noopener noreferrer">ISO/TC 272 (ciencias forenses)</a>.' + "</li>" +
+    "<li>" + '<a href="https://dof.gob.mx/nota_detalle_popup.php?codigo=5534255" target="_blank" rel="noopener noreferrer">Declaratoria de vigencia de la NMX-EC-17025-IMNC-2018</a> (DOF, 9 de agosto de 2018).' + "</li>" +
+    "<li>" + '<a href="https://www.diputados.gob.mx/LeyesBiblio/pdf/LICal_010720.pdf" target="_blank" rel="noopener noreferrer">Ley de Infraestructura de la Calidad</a> (DOF, 1 de julio de 2020).' + "</li>" +
+    "<li>" + '<a href="https://www.aabb.org/standards-accreditation/standards/relationship-testing-laboratories" target="_blank" rel="noopener noreferrer">AABB · Standards for Relationship Testing Laboratories</a>.' + "</li>" +
+    "<li>" + '<a href="https://isfg.org/publications/dna-commission/paternity-testing-commission-of-the-international-society-of-forensic-genetics-recommendations-on-genetic-investigations-in-paternity-cases" target="_blank" rel="noopener noreferrer">ISFG · recomendaciones de la Comisión de Pruebas de Paternidad</a>.' + "</li>" +
+    "<li>" + '<a href="https://www.diputados.gob.mx/LeyesBiblio/pdf/LFPDPPP.pdf" target="_blank" rel="noopener noreferrer">Ley Federal de Protección de Datos Personales en Posesión de los Particulares</a> (texto vigente).' + "</li>" +
+    "<li>" + '<a href="https://www.scjn.gob.mx/derechos-humanos/sites/default/files/sentencias-emblematicas/resumen/2021-10/Resumen%20ADR2944-2017%20DGDH.pdf" target="_blank" rel="noopener noreferrer">SCJN · resumen del amparo directo en revisión 2944/2017</a>.' + "</li>" +
+    "<li>" + '<a href="https://www.gov.uk/government/publications/autosomal-dna-relationship-testing-fsr-gui-0014/autosomal-dna-relationship-testing-accessible" target="_blank" rel="noopener noreferrer">Forensic Science Regulator (Reino Unido) · FSR-GUI-0014, pruebas de parentesco con ADN autosómico</a>.' + "</li>" +
     "</ul>" +
     "</section>" +
 
@@ -217,7 +232,10 @@
     "<li>AABB. 2024 Relationship Testing Technical Report. Bethesda (MD): AABB; 2025.</li>" +
     "<li>Familias · DNA-VIEW (Forensic Mathematics) · GenoProof (qualitype GmbH): software forense de referencia para la comparación externa pendiente.</li>" +
     "<li>Danecek P, et al. The Variant Call Format and VCFtools. Bioinformatics. 2011;27(15):2156-2158.</li>" +
-    "<li>Cámara de Diputados del H. Congreso de la Unión. Ley Federal de Protección de Datos Personales en Posesión de los Particulares. México; última reforma DOF 2025.</li>" +
+    "<li>Cámara de Diputados del H. Congreso de la Unión. Ley Federal de Protección de Datos Personales en Posesión de los Particulares. México; DOF 20 de marzo de 2025.</li>" +
+    "<li>ISO/IEC 17025:2017. General requirements for the competence of testing and calibration laboratories. Geneva: ISO; 2017 (NMX-EC-17025-IMNC-2018 en México).</li>" +
+    "<li>Morling N, Allen RW, Carracedo A, et al. Paternity Testing Commission of the ISFG: recommendations on genetic investigations in paternity cases. Forensic Sci Int. 2002;129(3):148-157.</li>" +
+    "<li>Coble MD, Buckleton J, Butler JM, et al. DNA Commission of the ISFG: Recommendations on the validation of software programs performing biostatistical calculations for forensic genetics applications. Forensic Sci Int Genet. 2016;25:191-197.</li>" +
     "</ol>" +
     "</section>" +
 

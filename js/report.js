@@ -50,7 +50,50 @@
     return v === undefined ? "" : v;
   }
 
-  function resultToText(result) {
+  /* ---------------------------------------------------------------------
+   * Añadidos opcionales de la versión web (`extras`). Sin ellos, el texto y el
+   * HTML son idénticos byte a byte a la referencia congelada.
+   *   extras.cap_posterior  nunca imprime 100 %, "inf" ni "nan"
+   *   extras.verdict        [tono, titular] ya ajustado por las observaciones
+   *   extras.conclusion     conclusión ya ajustada
+   *   extras.insights       [{level, title, text}] observaciones de control
+   *   extras.limits         [html] alcances y límites
+   * ------------------------------------------------------------------- */
+  function usedLogs(result) {
+    return result.markers
+      .filter(function (m) { return m.pi !== null && m.pi > 0 && m.paternity_informative && m.compatible === true; })
+      .map(function (m) { return Math.log10(m.pi); });
+  }
+
+  function cpiText(result, extras) {
+    if (extras && extras.cap_posterior && !Number.isFinite(result.cpi)) {
+      var lc = usedLogs(result).reduce(function (a, b) { return a + b; }, 0);
+      return "≈ 10^" + Math.round(lc) + " (fuera del rango numérico)";
+    }
+    return E.pyFormatG(result.cpi, 6);
+  }
+
+  function posteriorText(result, extras) {
+    var p = result.posterior_probability;
+    if (extras && extras.cap_posterior) {
+      if (!Number.isFinite(p)) {
+        var prior = result.prior_probability_used;
+        var lc = usedLogs(result).reduce(function (a, b) { return a + b; }, 0);
+        p = 1 / (1 + Math.pow(10, -(lc + Math.log10(prior / (1 - prior)))));
+      }
+      var text = E.pyFormatF(p * 100, 6);
+      if (Number.parseFloat(text) >= 100) return ">99.999999%";
+      if (Number.parseFloat(text) <= 0) return "<0.000001%";
+      return text + "%";
+    }
+    return E.pyFormatF(p * 100, 6) + "%";
+  }
+
+  function plain(html) {
+    return String(html).replace(/<[^>]+>/g, "");
+  }
+
+  function resultToText(result, extras) {
     var lines = [
       "Ensayo: " + result.assay_label,
       "Marcadores capturados: " + result.captured_markers,
@@ -61,28 +104,38 @@
       "Datos incompletos: " + result.missing_markers,
       "No informativos excluidos: " + result.non_informative_markers,
     ];
-    if (result.cpi !== null) lines.push("CPI capturado: " + E.pyFormatG(result.cpi, 6));
+    if (result.cpi !== null) lines.push("CPI capturado: " + cpiText(result, extras));
     if (result.posterior_probability !== null) {
       lines.push("Probabilidad previa usada: " + E.pyFormatF(result.prior_probability_used, 2));
-      lines.push("Probabilidad posterior: " + E.pyFormatF(result.posterior_probability * 100, 6) + "%");
+      lines.push("Probabilidad posterior: " + posteriorText(result, extras));
     }
     lines.push("Versión del algoritmo: " + result.algorithm_version);
     lines.push("");
-    lines.push("Lectura de triaje: " + result.conclusion);
+    lines.push("Lectura de triaje: " + (extras && extras.conclusion ? extras.conclusion : result.conclusion));
     if (result.warnings.length) {
       lines.push("");
       lines.push("Advertencias:");
       result.warnings.forEach(function (w) { lines.push("- " + w); });
     }
+    if (extras && extras.insights && extras.insights.length) {
+      lines.push("");
+      lines.push("Observaciones de control:");
+      extras.insights.forEach(function (o) { lines.push("- " + o.title + ": " + o.text); });
+    }
+    if (extras) {
+      lines.push("");
+      lines.push("Lectura preliminar: no sustituye el dictamen de un laboratorio acreditado ni la revisión pericial.");
+    }
     return lines.join("\n");
   }
 
   // Devuelve el documento HTML (equivale a write_html_report sin escribir a disco).
-  function buildHtmlReport(result, metadata) {
+  function buildHtmlReport(result, metadata, extras) {
     metadata = metadata || {};
     var c = REPORT_COLORS;
     var reportMode = metadata.report_mode === undefined ? "con identificadores" : metadata.report_mode;
-    var banner = E.bannerMeta(result);
+    var banner = extras && extras.verdict ? extras.verdict : E.bannerMeta(result);
+    var conclusion = extras && extras.conclusion ? extras.conclusion : result.conclusion;
     var bannerClass = banner[0];
     var verdict = banner[1];
 
@@ -110,9 +163,8 @@
       );
     });
 
-    var posterior =
-      result.posterior_probability === null ? "No calculada" : E.pyFormatF(result.posterior_probability * 100, 6) + "%";
-    var cpi = result.cpi === null ? "No calculado" : E.pyFormatG(result.cpi, 6);
+    var posterior = result.posterior_probability === null ? "No calculada" : posteriorText(result, extras);
+    var cpi = result.cpi === null ? "No calculado" : cpiText(result, extras);
     var incColor = result.exclusions ? c.bad : c.text;
     var compColor = result.compatible_markers ? c.ok : c.text;
     var skipColor = result.non_informative_markers ? c.skip : c.text;
@@ -121,6 +173,32 @@
     if (result.warnings.length) {
       var items = result.warnings.map(function (w) { return "<li>" + esc(w) + "</li>"; }).join("");
       warningsBlock = '<div class="warning"><strong>Advertencias</strong><ul>' + items + "</ul></div>";
+    }
+
+    var extraCss = "";
+    var insightsBlock = "";
+    var limitsBlock = "";
+    if (extras) {
+      extraCss =
+        "\n    .insights { border: 1px solid var(--border); border-left: 4px solid " + c.text_muted + "; border-radius: 10px; padding: 12px 16px; margin: 18px 0; }" +
+        "\n    .insights li.alert strong { color: " + c.warn + "; }" +
+        "\n    .limits { margin-top: 22px; padding: 12px 16px; border: 1px solid var(--border); border-radius: 10px; font-size: 12.5px; }" +
+        "\n    .limits ul, .insights ul { margin: 8px 0 0; padding-left: 20px; }";
+      if (extras.insights && extras.insights.length) {
+        insightsBlock =
+          '<div class="insights"><strong>Observaciones de control</strong><ul>' +
+          extras.insights
+            .map(function (o) { return '<li class="' + (o.level === "alert" ? "alert" : "info") + '"><strong>' + esc(o.title) + ".</strong> " + esc(o.text) + "</li>"; })
+            .join("") +
+          "</ul></div>\n      ";
+      }
+      if (extras.limits && extras.limits.length) {
+        // textos fijos de la aplicación (no datos del usuario): se insertan tal cual
+        limitsBlock =
+          '<div class="limits"><strong>Alcances y límites de este análisis</strong><ul>' +
+          extras.limits.map(function (t) { return "<li>" + t + "</li>"; }).join("") +
+          "</ul></div>\n      ";
+      }
     }
 
     var helix =
@@ -203,7 +281,7 @@
     footer.disclaimer { margin-top: 22px; padding-top: 14px; border-top: 1px solid var(--border);
                          color: var(--muted); font-size: 12px; }
     @media print { body { background: #fff; } .sheet { max-width: none; }
-                    .banner, .card { box-shadow: none; } }
+                    .banner, .card { box-shadow: none; } }${extraCss}
   </style>
 </head>
 <body>
@@ -218,7 +296,7 @@
       <p class="subtitle">Ensayo: ${esc(result.assay_label)}</p>
       <div class="banner ${bannerClass}">
         <div class="verdict">${esc(verdict)}</div>
-        <div class="detail">${esc(result.conclusion)}</div>
+        <div class="detail">${esc(conclusion)}</div>
       </div>
       <span class="footnote-chip">Resultado preliminar · no sustituye dictamen pericial</span>
       <div class="meta">
@@ -237,7 +315,7 @@
         <div class="card"><div class="label">Posterior</div><div class="value">${esc(posterior)}</div></div>
       </div>
       <p class="small">Marcadores capturados: ${result.captured_markers}. Datos incompletos: ${result.missing_markers}. No informativos excluidos: ${result.non_informative_markers}.</p>
-      ${warningsBlock}
+      ${warningsBlock}${insightsBlock}
       <table>
         <thead>
           <tr><th>Marcador</th><th>Hijo/a</th><th>Progenitor/a alegado/a</th><th>Estado</th><th>Índice</th><th>Nota</th></tr>
@@ -246,7 +324,7 @@
 ${markerRows.join("\n")}
         </tbody>
       </table>
-      <footer class="disclaimer">
+      ${limitsBlock}<footer class="disclaimer">
         Este reporte no sustituye el dictamen de un laboratorio acreditado ni una evaluación pericial.
         No prueba ni descarta legalmente una relación biológica. Requiere consentimiento/autorización,
         cadena de custodia, validación de datos y revisión profesional.

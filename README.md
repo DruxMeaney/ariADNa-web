@@ -4,7 +4,7 @@
 
 👉 **Usar la app:** https://druxmeaney.github.io/ariADNa-web/
 
-ariADNa compara al hijo/a contra una persona alegada como progenitor/a (padre o madre; análisis dúo), marcador por marcador, a partir de resultados que **un laboratorio ya procesó**. Detecta compatibilidad mendeliana e incongruencias y, sólo cuando el laboratorio aportó índices válidos por marcador (PI/MI/LR), calcula el CPI y la probabilidad posterior. Algoritmo `ariADNa-triaje-v0.1.4`.
+ariADNa compara al hijo/a contra una persona alegada como progenitor/a (padre o madre; análisis dúo), marcador por marcador, a partir de resultados que **un laboratorio ya procesó**. Detecta compatibilidad mendeliana e incongruencias y, sólo cuando el laboratorio aportó índices válidos por marcador (PI/MI/LR), calcula el CPI y la probabilidad posterior. Algoritmo `ariADNa-triaje-v0.2.0`.
 
 > ariADNa es una herramienta de **apoyo y triaje**, no un dictamen. No sustituye a un laboratorio acreditado, al dictamen pericial, al consentimiento informado ni a la cadena de custodia. Lee el [aviso de uso](DISCLAIMER.md).
 
@@ -12,7 +12,7 @@ ariADNa compara al hijo/a contra una persona alegada como progenitor/a (padre o 
 
 - **Sin servidor.** Es una página estática; todo el cálculo ocurre en tu equipo.
 - **Bloqueo técnico de red.** La página declara una política de seguridad (`connect-src 'none'`) que impide al navegador enviar datos a cualquier dirección. Sin analíticas, cookies, fuentes ni scripts externos.
-- **Sin almacenamiento del caso.** Los datos viven sólo en memoria hasta que pulsas *Limpiar caso* o cierras la pestaña. Lo único que se recuerda es tu preferencia de tema claro/oscuro.
+- **Sin almacenamiento del caso.** Los datos viven sólo en memoria hasta que pulsas *Limpiar caso* o cierras la pestaña. Lo único que se recuerda en el navegador son preferencias de interfaz: tema, color, animaciones, avisos y si ya viste la guía de inicio.
 - **Exportar es opcional.** El reporte HTML se descarga a tu equipo; puedes exportarlo anonimizado.
 
 ## Qué hace
@@ -21,7 +21,12 @@ ariADNa compara al hijo/a contra una persona alegada como progenitor/a (padre o 
 - Captura manual, **pegado desde hoja de cálculo**, importación **CSV/TSV/TXT/VCF** (botón o arrastrar y soltar) y ejemplos sintéticos para probar.
 - Selección de muestras en VCF, con avisos por `FILTER`, genotipos faltantes, sitios multialélicos, `DP` y `GQ` bajos; las advertencias críticas bloquean CPI/probabilidad posterior.
 - Excluye del conteo marcadores no informativos (AMEL, controles, X/Y).
-- Veredicto de triaje, CPI, probabilidad posterior con su nivel de soporte (alto, moderado o limitado), gráficos y detalle por marcador con **los alelos compartidos resaltados**.
+- Veredicto de triaje, CPI y probabilidad posterior con su nivel de soporte (alto, moderado o limitado).
+- **Figura de soporte** sobre el eje logarítmico del CPI: zonas de lectura, aporte de cada marcador, eje de probabilidad posterior y sensibilidad a la probabilidad previa.
+- **Alelos comparados**: una fila por marcador con un esquema espejo (hijo/a arriba, progenitor/a abajo, alelo compartido resaltado), filtros, orden y carril navegable.
+- **Observaciones de control**: perfiles idénticos, marcadores repetidos, índices atípicos o que contradicen la compatibilidad, pocos marcadores, anatomía de las incongruencias en STR.
+- Aviso de **alcances y límites** antes de analizar y al final de cada reporte.
+- Página de inicio, guía de primer uso, ayuda integrada y **configuración** (tema claro/oscuro/automático, color de la interfaz, animaciones).
 - Reporte HTML exportable, anonimizado o con identificadores.
 - Modo «Datos crudos» que orienta sobre qué pedir al laboratorio cuando sólo hay FASTQ, BAM, electroferogramas, etc.
 
@@ -45,12 +50,15 @@ Descarga el repositorio y abre `index.html` en el navegador. No necesita instala
 
 ```
 index.html          estructura de la app y política de seguridad
-css/styles.css      sistema visual "Modern Forensic" (tema claro y oscuro)
-js/engine.js        motor de triaje
+css/styles.css      sistema visual "Modern Forensic" (temas, colores de marca)
+js/theme-init.js    preferencias de interfaz (se aplica antes de pintar)
+js/engine.js        motor de triaje y observaciones de control
 js/report.js        resumen de texto y reporte HTML
-js/charts.js        gráficos SVG
+js/charts.js        gráficos SVG del reporte
+js/helix.js         animación de la doble hélice (inicio y portada)
 js/app.js           interfaz
-js/about.js         contenido de "Acerca de"
+js/about.js         contenido de "Acerca de" (teoría, metodología, marco normativo)
+js/help.js          ayuda y tutorial (Configuración › Ayuda)
 js/examples.js      ejemplos sintéticos incrustados
 tests/              pruebas y referencia congelada
 ```
